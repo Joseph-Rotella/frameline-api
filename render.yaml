@@ -1,0 +1,23 @@
+# One-click-ish Render Blueprint. In Render: New > Blueprint, point at your repo.
+services:
+  - type: web
+    name: frameline-api
+    runtime: node
+    plan: starter            # has a persistent disk; "free" sleeps and has no disk
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /data
+      - key: UPLOAD_DIR
+        value: /data/uploads
+      - key: CORS_ORIGIN
+        sync: false          # set this to your Netlify URL after deploying the front end
+      - key: ANTHROPIC_API_KEY
+        sync: false          # optional platform key; clients can also bring their own in-app
+    disk:
+      name: frameline-data
+      mountPath: /data       # SQLite DB + uploaded photos persist here
+      sizeGB: 1

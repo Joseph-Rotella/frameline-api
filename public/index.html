@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frameline API — smoke test</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:40px auto;padding:0 18px;color:#1C1A17;background:#F1F0EC;}
+  h1{font-size:20px;} h2{font-size:14px;margin-top:26px;text-transform:uppercase;letter-spacing:.08em;color:#8C867B;}
+  .card{background:#fff;border:1px solid #DEDBD3;border-radius:12px;padding:16px;margin-bottom:14px;}
+  input,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #C9C5BB;margin:3px 4px 3px 0;}
+  button{background:#9E2B25;color:#fff;border-color:#9E2B25;cursor:pointer;font-weight:600;}
+  button.alt{background:#fff;color:#1C1A17;}
+  pre{background:#1C1A17;color:#E9E6DF;padding:14px;border-radius:10px;overflow:auto;font-size:12px;max-height:340px;}
+  .ok{color:#5E7350;font-weight:600;} .bad{color:#9E2B25;font-weight:600;}
+</style>
+</head>
+<body>
+  <h1>Frameline API — smoke test</h1>
+  <p>Proves the backend runs end-to-end. Default demo login is prefilled.</p>
+
+  <div class="card">
+    <h2>1 · Auth</h2>
+    <input id="email" value="demo@frameline.test" size="22">
+    <input id="password" value="frameline" size="14" type="password">
+    <button onclick="login()">Log in</button>
+    <button class="alt" onclick="register()">Register new studio</button>
+    <div id="authState">Not logged in.</div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Read your data</h2>
+    <button class="alt" onclick="call('/me')">/me</button>
+    <button class="alt" onclick="call('/clients')">Clients</button>
+    <button class="alt" onclick="call('/galleries')">Galleries</button>
+    <button class="alt" onclick="call('/orders')">Orders</button>
+    <button class="alt" onclick="call('/appointments')">Appointments</button>
+    <button class="alt" onclick="call('/health')">Health</button>
+  </div>
+
+  <div class="card">
+    <h2>3 · Create a client</h2>
+    <input id="cname" placeholder="Client name" value="Riverdale High" size="22">
+    <button onclick="createClient()">POST /clients</button>
+  </div>
+
+  <h2>Response</h2>
+  <pre id="out">—</pre>
+
+<script>
+  let token = '';
+  const out = (o, bad) => { const e = document.getElementById('out'); e.textContent = typeof o === 'string' ? o : JSON.stringify(o, null, 2); e.className = bad ? 'bad' : ''; };
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const r = await fetch(path, { ...opts, headers });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw data;
+    return data;
+  }
+  async function login() {
+    try {
+      const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.value, password: password.value }) });
+      token = d.token; document.getElementById('authState').innerHTML = '<span class="ok">Logged in.</span> token stored.'; out(d);
+    } catch (e) { out(e, true); }
+  }
+  async function register() {
+    try {
+      const d = await api('/auth/register', { method: 'POST', body: JSON.stringify({ email: email.value, password: password.value, studio: 'New Studio' }) });
+      token = d.token; document.getElementById('authState').innerHTML = '<span class="ok">Registered + logged in.</span>'; out(d);
+    } catch (e) { out(e, true); }
+  }
+  async function call(path) { try { out(await api(path)); } catch (e) { out(e, true); } }
+  async function createClient() {
+    try { out(await api('/clients', { method: 'POST', body: JSON.stringify({ name: document.getElementById('cname').value, contract_status: 'prospect' }) })); }
+    catch (e) { out(e, true); }
+  }
+</script>
+</body>
+</html>
