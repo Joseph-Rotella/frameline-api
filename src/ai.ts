@@ -5,19 +5,36 @@ import { Authed } from './auth';
 
 export const ai = Router();
 
-// Resolve which AI key to use for an org: the org's own key if they saved one,
-// otherwise the platform key (if the operator set one), otherwise none.
-function getOrgKey(orgId?: string): string {
+// Resolve which AI provider + key to use for an org: the org's own key if they
+// saved one, otherwise the platform key (if the operator set one), otherwise none.
+function getOrgAI(orgId?: string): { provider: string; key: string } {
   if (orgId) {
-    const c: any = db.prepare("SELECT data_encrypted FROM integration_credentials WHERE org_id = ? AND provider = 'ai'").get(orgId);
-    if (c) { try { const d = JSON.parse(c.data_encrypted); if (d && d.key) return d.key; } catch { /* ignore */ } }
+    const c: any = db.prepare("SELECT data_encrypted, scopes FROM integration_credentials WHERE org_id = ? AND provider = 'ai'").get(orgId);
+    if (c) {
+      try { const d = JSON.parse(c.data_encrypted); if (d && d.key) return { provider: d.provider || c.scopes || 'anthropic', key: d.key }; } catch { /* ignore */ }
+    }
   }
-  return config.anthropicKey || '';
+  return { provider: 'anthropic', key: config.anthropicKey || '' };
+}
+function getOrgKey(orgId?: string): string {
+  return getOrgAI(orgId).key;
 }
 
 async function complete(system: string, user: string, maxTokens = 1024, orgId?: string): Promise<string> {
-  const key = getOrgKey(orgId);
+  const { provider, key } = getOrgAI(orgId);
   if (!key) return `[AI is off] Add your AI key in Settings → AI provider to turn it on.`;
+  // Route to OpenAI (ChatGPT) when selected, or when the key looks like an OpenAI key.
+  const useOpenAI = provider === 'openai' || (/^sk-/.test(key) && !/^sk-ant-/.test(key));
+  if (useOpenAI) {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: config.openaiModel, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+    });
+    const data: any = await r.json();
+    if (!r.ok) throw new Error(data?.error?.message || 'AI error');
+    return (data.choices?.[0]?.message?.content || '').trim();
+  }
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },

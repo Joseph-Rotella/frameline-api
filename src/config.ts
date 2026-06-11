@@ -19,6 +19,7 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN || '*',
   anthropicKey: process.env.ANTHROPIC_API_KEY || '',
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
