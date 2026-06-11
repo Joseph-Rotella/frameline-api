@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -23,7 +23,6 @@
     "tsx": "^4.19.0"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.3.0",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
