@@ -7,7 +7,7 @@ import { seedIfEmpty } from './seed';
 import { auth, requireAuth, Authed } from './auth';
 import { crudRouter, RESOURCES } from './crud';
 import { photos, sharpAvailable } from './photos';
-import { email } from './email';
+import { email, emailPublic } from './email';
 import { ai, aiEnabled } from './ai';
 import { payments, stripeWebhook, stripeEnabled } from './payments';
 import { shareOwner, sharePublic, purgeExpired } from './share';
@@ -38,6 +38,8 @@ app.get('/health', (_req, res) => res.json({
 app.use('/auth', auth);
 // Public client gallery links (no auth)
 app.use(sharePublic);
+// Public Gmail OAuth callback (Google redirects here without auth)
+app.use(emailPublic);
 
 // Everything below requires a token
 app.get('/me', requireAuth, (req: Authed, res: Response) => {

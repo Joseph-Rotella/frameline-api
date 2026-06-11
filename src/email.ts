@@ -4,6 +4,9 @@ import { config } from './config';
 import { Authed } from './auth';
 
 export const email = Router();
+// Public router: Google redirects the browser here with no auth header, so it
+// must NOT sit behind requireAuth. The org is identified via the OAuth state param.
+export const emailPublic = Router();
 
 // Send an email. v0 records it to the client thread (the front end's mailto hand-off
 // still delivers from the user's address). When Gmail is connected with valid tokens,
@@ -58,7 +61,7 @@ email.get('/integrations/gmail/connect', (req: Authed, res: Response) => {
   res.json({ configured: true, url });
 });
 
-email.get('/integrations/gmail/callback', async (req: Request, res: Response) => {
+emailPublic.get('/integrations/gmail/callback', async (req: Request, res: Response) => {
   const code = String(req.query.code || '');
   const orgId = String(req.query.state || '');
   if (!code || !config.google.clientId) return res.status(400).send('Missing code or Google config.');
