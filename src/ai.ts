@@ -20,16 +20,14 @@ function getOrgKey(orgId?: string): string {
   return getOrgAI(orgId).key;
 }
 
-async function complete(system: string, user: string, maxTokens = 1024, orgId?: string): Promise<string> {
-  const { provider, key } = getOrgAI(orgId);
-  if (!key) return `[AI is off] Add your AI key in Settings → AI provider to turn it on.`;
-  // Route to OpenAI (ChatGPT) when selected, or when the key looks like an OpenAI key.
+type ChatMsg = { role: string; content: string };
+async function chat(provider: string, key: string, system: string, messages: ChatMsg[], maxTokens: number): Promise<string> {
   const useOpenAI = provider === 'openai' || (/^sk-/.test(key) && !/^sk-ant-/.test(key));
   if (useOpenAI) {
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: config.openaiModel, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+      body: JSON.stringify({ model: config.openaiModel, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, ...messages] }),
     });
     const data: any = await r.json();
     if (!r.ok) throw new Error(data?.error?.message || 'AI error');
@@ -38,11 +36,17 @@ async function complete(system: string, user: string, maxTokens = 1024, orgId?: 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: config.anthropicModel, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: config.anthropicModel, max_tokens: maxTokens, system, messages }),
   });
   const data: any = await r.json();
   if (!r.ok) throw new Error(data?.error?.message || 'AI error');
   return (data.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n').trim();
+}
+
+async function complete(system: string, user: string, maxTokens = 1024, orgId?: string): Promise<string> {
+  const { provider, key } = getOrgAI(orgId);
+  if (!key) return `[AI is off] Add your AI key in Settings → AI provider to turn it on.`;
+  return chat(provider, key, system, [{ role: 'user', content: user }], maxTokens);
 }
 
 function orgContext(orgId: string): string {
@@ -142,17 +146,11 @@ ai.post('/ai/summarize', async (req: Authed, res: Response) => {
 // Generic passthrough used by the front end's callAI({system,messages}).
 ai.post('/ai/complete', async (req: Authed, res: Response) => {
   const { system, messages, max_tokens } = req.body || {};
-  const key = getOrgKey(req.orgId);
+  const { provider, key } = getOrgAI(req.orgId);
   if (!key) return res.json({ text: '[AI is off] Add your AI key in Settings → AI provider to turn it on.' });
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: config.anthropicModel, max_tokens: max_tokens || 1024, system, messages: messages || [] }),
-    });
-    const data: any = await r.json();
-    if (!r.ok) throw new Error(data?.error?.message || 'AI error');
-    res.json({ text: (data.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n').trim() });
+    const txt = await chat(provider, key, system || '', messages || [], max_tokens || 1024);
+    res.json({ text: txt });
   } catch (e) { res.status(502).json({ error: (e as Error).message }); }
 });
 
