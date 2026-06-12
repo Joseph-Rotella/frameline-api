@@ -21,7 +21,7 @@ email.post('/emails/send', async (req: Authed, res: Response) => {
 
   if (cred) {
     try {
-      gmailMessageId = await sendViaGmail(cred, { to, subject, body });
+      gmailMessageId = await sendViaGmail(req.orgId!, { to, subject, body });
       delivered = true;
     } catch (e) {
       // Fall back to record-only; surface the reason for debugging.
@@ -75,6 +75,7 @@ emailPublic.get('/integrations/gmail/callback', async (req: Request, res: Respon
     });
     const tokens: any = await tokenRes.json();
     if (!tokens.access_token) return res.status(400).json(tokens);
+    tokens.expires_at = Date.now() + (tokens.expires_in || 3600) * 1000;
     // PRODUCTION: encrypt this blob at rest (KMS/libsodium) before storing.
     db.prepare(`INSERT INTO integration_credentials (id, org_id, provider, data_encrypted, scopes)
                 VALUES (?,?,?,?,?)
@@ -91,15 +92,83 @@ email.post('/integrations/gmail/disconnect', (req: Authed, res: Response) => {
   res.json({ ok: true });
 });
 
-async function sendViaGmail(cred: any, msg: { to: string; subject: string; body: string }): Promise<string> {
-  const tokens = JSON.parse(cred.data_encrypted);
-  // NOTE: production must refresh the access token using the refresh_token when expired.
+// Return a valid Gmail access token for the org, refreshing it via the stored
+// refresh_token when the current one has expired. Keeps Gmail working past the ~1h token life.
+async function getGmailAccessToken(orgId: string): Promise<string> {
+  const cred: any = db.prepare("SELECT * FROM integration_credentials WHERE org_id = ? AND provider = 'gmail'").get(orgId);
+  if (!cred) throw new Error('Gmail not connected');
+  const tokens: any = JSON.parse(cred.data_encrypted);
+  if (tokens.access_token && tokens.expires_at && Date.now() < tokens.expires_at - 60000) return tokens.access_token;
+  if (!tokens.refresh_token) throw new Error('Gmail session expired — please reconnect Gmail in Settings.');
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: config.google.clientId, client_secret: config.google.clientSecret,
+      refresh_token: tokens.refresh_token, grant_type: 'refresh_token',
+    }),
+  });
+  const data: any = await r.json();
+  if (!data.access_token) throw new Error(data?.error_description || 'Could not refresh Gmail — please reconnect.');
+  tokens.access_token = data.access_token;
+  tokens.expires_at = Date.now() + (data.expires_in || 3600) * 1000;
+  db.prepare("UPDATE integration_credentials SET data_encrypted = ? WHERE org_id = ? AND provider = 'gmail'").run(JSON.stringify(tokens), orgId);
+  return tokens.access_token;
+}
+
+function decodeB64(d: string): string {
+  return Buffer.from((d || '').replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+}
+function extractBody(payload: any): string {
+  if (!payload) return '';
+  if (payload.mimeType === 'text/plain' && payload.body?.data) return decodeB64(payload.body.data);
+  if (payload.parts) {
+    const plain = payload.parts.find((p: any) => p.mimeType === 'text/plain');
+    if (plain?.body?.data) return decodeB64(plain.body.data);
+    for (const p of payload.parts) { const b = extractBody(p); if (b) return b; }
+  }
+  if (payload.body?.data) return decodeB64(payload.body.data);
+  return '';
+}
+
+// Read recent inbox messages from the connected Gmail (uses the gmail.readonly scope).
+email.get('/gmail/messages', async (req: Authed, res: Response) => {
+  const cred: any = db.prepare("SELECT 1 FROM integration_credentials WHERE org_id = ? AND provider = 'gmail'").get(req.orgId);
+  if (!cred) return res.json({ connected: false, messages: [] });
+  try {
+    const token = await getGmailAccessToken(req.orgId!);
+    const listR = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=' + encodeURIComponent('in:inbox newer_than:60d'), { headers: { Authorization: `Bearer ${token}` } });
+    const list: any = await listR.json();
+    if (!listR.ok) throw new Error(list?.error?.message || 'Gmail read error');
+    const messages: any[] = [];
+    for (const ref of (list.messages || [])) {
+      const mR = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${ref.id}?format=full`, { headers: { Authorization: `Bearer ${token}` } });
+      const m: any = await mR.json();
+      if (!mR.ok) continue;
+      const headers = (m.payload?.headers || []) as any[];
+      const h = (n: string) => (headers.find((x) => x.name.toLowerCase() === n.toLowerCase())?.value) || '';
+      const from = h('From');
+      const fromEmail = (from.match(/<([^>]+)>/)?.[1] || from).trim().toLowerCase();
+      messages.push({
+        id: m.id, from, fromEmail, subject: h('Subject'),
+        date: new Date(Number(m.internalDate || Date.now())).toISOString(),
+        snippet: (m.snippet || '').slice(0, 300),
+        body: extractBody(m.payload).slice(0, 4000),
+      });
+    }
+    res.json({ connected: true, messages });
+  } catch (e) {
+    res.status(502).json({ connected: true, error: (e as Error).message, messages: [] });
+  }
+});
+
+async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string }): Promise<string> {
+  const accessToken = await getGmailAccessToken(orgId);
   const raw = Buffer.from(
     `To: ${msg.to}\r\nSubject: ${msg.subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${msg.body}`
   ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${tokens.access_token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ raw }),
   });
   const data: any = await r.json();
