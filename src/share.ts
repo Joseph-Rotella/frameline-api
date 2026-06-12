@@ -186,6 +186,12 @@ body.locked .lb-wm{display:block}
 .lb-dl{background:var(--accent);color:#fff;text-decoration:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px}
 .lb-locked{color:#C7BFB1;font-size:13px}
 @media(max-width:560px){.lb-nav{width:40px;height:54px;font-size:20px}}
+.cmodal{position:fixed;inset:0;background:rgba(20,17,14,.62);display:none;z-index:60;align-items:center;justify-content:center;padding:20px}
+.cmodal.on{display:flex}
+.cbox{background:#fff;border-radius:16px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.cmark{width:62px;height:62px;border-radius:50%;background:#E7F0E3;color:#3C5132;font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-weight:700}
+.cbox h3{margin:0 0 8px;font-size:23px}.cbox p{color:#6A6458;font-size:14px;line-height:1.5;margin:0 0 22px}
+.cclose{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px 30px;font-weight:700;font-size:15px;cursor:pointer}
 </style></head><body class="${open ? '' : 'locked'}">
 <div class="hero"><div class="wrap"><div class="kick">${esc(studio)} \u00b7 team &amp; individual photos</div><h1>${esc(g.name)}</h1>${exp ? `<div class="muted" style="color:#C7BFB1">Available to order through ${esc(exp)}</div>` : ''}</div></div>
 <div class="wrap">
@@ -201,6 +207,7 @@ body.locked .lb-wm{display:block}
   </div>
 </div>
 ${lightbox}
+<div class="cmodal" id="cmodal"><div class="cbox"><div class="cmark">&#10003;</div><h3>Order received!</h3><p>Thanks &mdash; <b id="cm-ath"></b>'s order is in. ${esc(studio)} will follow up about payment and prints.</p><button class="cclose" id="cm-close" type="button">Done</button></div></div>
 <script>
   var PHOTOS=${photoJson};var OPEN=${open ? 'true' : 'false'};var LBI=0;
   var lb=document.getElementById('lb');
@@ -218,11 +225,18 @@ ${lightbox}
   document.getElementById('go').onclick=async()=>{
     const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value};
     if(!body.athleteName){document.getElementById('msg').textContent='Please enter the athlete name.';return;}
+    document.getElementById('msg').textContent='';
     try{const r=await fetch(location.pathname.replace(/\/$/,'')+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!r.ok)throw 0;document.getElementById('msg').innerHTML='<span class="ok">Order received \u2014 thank you!</span>';
+      if(!r.ok)throw 0;
       document.getElementById('go').disabled=true;
+      document.getElementById('cm-ath').textContent=body.athleteName;
+      document.getElementById('cmodal').classList.add('on');
     }catch(e){document.getElementById('msg').textContent='Something went wrong \u2014 please try again.';}
   };
+  (function(){var c=document.getElementById('cmodal'),x=document.getElementById('cm-close');
+    if(x)x.onclick=function(){c.classList.remove('on');};
+    if(c)c.addEventListener('click',function(e){if(e.target===c)c.classList.remove('on');});
+  })();
 </script>
 </body></html>`;
 }
