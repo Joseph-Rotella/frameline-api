@@ -226,7 +226,7 @@ ${lightbox}
     const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value};
     if(!body.athleteName){document.getElementById('msg').textContent='Please enter the athlete name.';return;}
     document.getElementById('msg').textContent='';
-    try{const r=await fetch(location.pathname.replace(/\/$/,'')+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    try{const base=location.pathname.charAt(location.pathname.length-1)==='/'?location.pathname.slice(0,-1):location.pathname;const r=await fetch(base+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok)throw 0;
       document.getElementById('go').disabled=true;
       document.getElementById('cm-ath').textContent=body.athleteName;
