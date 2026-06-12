@@ -71,6 +71,7 @@ sharePublic.get('/s/:token', (req: Request, res: Response) => {
   const org: any = db.prepare('SELECT name FROM organizations WHERE id = ?').get(g.org_id);
   const photos: any[] = db.prepare("SELECT * FROM photos WHERE gallery_id = ? AND status != 'expired'").all(g.id);
   const pkgs: any[] = db.prepare('SELECT name, price FROM packages WHERE org_id = ?').all(g.org_id);
+  res.set('Cache-Control', 'no-store');
   res.send(publicPage(publicBase(req), g, org?.name || 'Photography', photos, pkgs));
 });
 
@@ -134,23 +135,22 @@ function publicPage(base: string, g: any, studio: string, photos: any[], pkgs: a
   const img = (p: any) => `${base}/uploads/${p.thumb_key || p.original_key}`;
   const full = (p: any) => `${base}/uploads/${p.original_key}`;
   const tiles = photos.length
-    ? photos.map((p) => open
-        ? `<a class="ph" href="${full(p)}" download target="_blank"><img loading="lazy" src="${img(p)}" alt=""></a>`
-        : `<div class="ph"><img loading="lazy" src="${img(p)}" alt="" draggable="false" oncontextmenu="return false"></div>`
-      ).join('')
-    : `<p class="muted">Photos are being prepared — check back soon.</p>`;
-  const opts = pkgs.map((p) => `<option value="${esc(p.name)}">${esc(p.name)} — $${p.price}</option>`).join('');
+    ? photos.map((p, idx) => `<button class="ph" type="button" data-i="${idx}"><img loading="lazy" src="${img(p)}" alt="" draggable="false" oncontextmenu="return false"></button>`).join('')
+    : `<p class="muted">Photos are being prepared \u2014 check back soon.</p>`;
+  const opts = pkgs.map((p) => `<option value="${esc(p.name)}">${esc(p.name)} \u2014 $${p.price}</option>`).join('');
   const exp = g.expires_at ? new Date(g.expires_at).toLocaleDateString() : '';
-  const wmSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><text x='150' y='100' fill='rgba(255,255,255,0.32)' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' transform='rotate(-28 150 100)'>${esc(studio)} · PROOF</text></svg>`;
+  const wmSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><text x='150' y='100' fill='rgba(255,255,255,0.32)' font-family='sans-serif' font-size='20' font-weight='700' text-anchor='middle' transform='rotate(-28 150 100)'>${esc(studio)} \u00b7 PROOF</text></svg>`;
   const wmUri = `data:image/svg+xml,${encodeURIComponent(wmSvg)}`;
   const dlAll = (open && photos.length)
-    ? `<div class="dlrow"><a class="dlbtn" href="${base}/s/${esc(g.share_token)}/download">&#11015; Download all photos (.zip)</a><span class="dlhint">Or tap any photo to save it on its own.</span></div>`
+    ? `<div class="dlrow"><a class="dlbtn" href="${base}/s/${esc(g.share_token)}/download">\u2b07 Download all photos (.zip)</a><span class="dlhint">Or tap any photo to view it big and save it on its own.</span></div>`
     : '';
   const lockBar = (!open && photos.length)
-    ? `<div class="lockbar">&#128274; These are watermarked previews. Place your order below — ${esc(studio)} will unlock full-resolution downloads once your order is complete.</div>`
+    ? `<div class="lockbar">\ud83d\udd12 These are watermarked previews \u2014 tap any photo to see it larger. Place your order below and ${esc(studio)} will unlock full-resolution downloads once your order is complete.</div>`
     : '';
+  const photoJson = JSON.stringify(photos.map((p) => ({ t: img(p), f: full(p) })));
+  const lightbox = photos.length ? `<div class="lb" id="lb"><span class="lb-x" id="lb-x">&times;</span><button class="lb-nav lb-prev" id="lb-prev" type="button">&#10094;</button><div class="lb-stage"><img id="lb-img" alt="" draggable="false" oncontextmenu="return false"><div class="lb-wm" id="lb-wm"></div></div><button class="lb-nav lb-next" id="lb-next" type="button">&#10095;</button><div class="lb-bar"><span class="lb-count" id="lb-count"></span>${open ? '<a class="lb-dl" id="lb-dl" download>Download this photo</a>' : '<span class="lb-locked">Watermarked preview</span>'}</div></div>` : '';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(g.name)} — ${esc(studio)}</title><style>
+<title>${esc(g.name)} \u2014 ${esc(studio)}</title><style>
 :root{--ink:#1C1A17;--paper:#F1F0EC;--line:#DEDBD3;--accent:#9E2B25;}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink)}
 .hero{background:linear-gradient(150deg,#241F1A,#3a3128);color:#F1EDE4;padding:30px 18px}
@@ -158,7 +158,7 @@ function publicPage(base: string, g: any, studio: string, photos: any[], pkgs: a
 .kick{font-size:11px;letter-spacing:.2em;color:#C8A86A;text-transform:uppercase}
 h1{margin:6px 0 2px;font-size:26px}.muted{color:#8C867B}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:18px 0}
-.ph{position:relative;display:block;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2b2620;aspect-ratio:4/3}
+.ph{position:relative;display:block;padding:0;width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2b2620;aspect-ratio:4/3;cursor:pointer}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 body.locked .ph::after{content:"";position:absolute;inset:0;background-image:url("${wmUri}");background-repeat:repeat;pointer-events:none}
 .dlrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 -4px}
@@ -169,10 +169,25 @@ body.locked .ph::after{content:"";position:absolute;inset:0;background-image:url
 .card h2{margin-top:0}
 label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6A6458;margin:10px 0 4px}
 input,select{width:100%;padding:10px 12px;border:1px solid #C9C5BB;border-radius:9px;font-size:15px}
-button{margin-top:16px;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px 18px;font-weight:700;font-size:15px;cursor:pointer}
+button.order{margin-top:16px;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px 18px;font-weight:700;font-size:15px;cursor:pointer}
 .note{font-size:12px;color:#8C867B;margin-top:14px}.ok{color:#3C5132;font-weight:700}
+.lb{position:fixed;inset:0;background:rgba(20,17,14,.94);display:none;z-index:50;align-items:center;justify-content:center}
+.lb.on{display:flex}
+.lb-stage{position:relative;display:flex;align-items:center;justify-content:center}
+.lb-stage img{max-width:92vw;max-height:80vh;border-radius:8px;display:block}
+body.locked .lb-stage img{max-width:min(92vw,660px)}
+.lb-wm{display:none;position:absolute;inset:0;background-image:url("${wmUri}");background-repeat:repeat;pointer-events:none;border-radius:8px}
+body.locked .lb-wm{display:block}
+.lb-x{position:absolute;top:14px;right:20px;color:#fff;font-size:36px;line-height:1;cursor:pointer;z-index:2}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.14);color:#fff;border:none;font-size:24px;width:46px;height:64px;border-radius:10px;cursor:pointer}
+.lb-prev{left:14px}.lb-next{right:14px}
+.lb-bar{position:absolute;bottom:18px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:14px}
+.lb-count{color:#C7BFB1;font-size:13px}
+.lb-dl{background:var(--accent);color:#fff;text-decoration:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px}
+.lb-locked{color:#C7BFB1;font-size:13px}
+@media(max-width:560px){.lb-nav{width:40px;height:54px;font-size:20px}}
 </style></head><body class="${open ? '' : 'locked'}">
-<div class="hero"><div class="wrap"><div class="kick">${esc(studio)} · team &amp; individual photos</div><h1>${esc(g.name)}</h1>${exp ? `<div class="muted" style="color:#C7BFB1">Available to order through ${esc(exp)}</div>` : ''}</div></div>
+<div class="hero"><div class="wrap"><div class="kick">${esc(studio)} \u00b7 team &amp; individual photos</div><h1>${esc(g.name)}</h1>${exp ? `<div class="muted" style="color:#C7BFB1">Available to order through ${esc(exp)}</div>` : ''}</div></div>
 <div class="wrap">
   ${dlAll}${lockBar}
   <div class="grid">${tiles}</div>
@@ -180,19 +195,33 @@ button{margin-top:16px;background:var(--accent);color:#fff;border:none;border-ra
     <label>Athlete name</label><input id="ath" placeholder="Athlete name">
     <label>Your email</label><input id="email" type="email" placeholder="you@email.com">
     <label>Package</label><select id="pkg">${opts || '<option>Standard</option>'}</select>
-    <button id="go">Place order</button>
+    <button class="order" id="go">Place order</button>
     <div id="msg" class="note"></div>
     <div class="note">After you order, ${esc(studio)} will follow up about payment and prints.</div>
   </div>
 </div>
+${lightbox}
 <script>
+  var PHOTOS=${photoJson};var OPEN=${open ? 'true' : 'false'};var LBI=0;
+  var lb=document.getElementById('lb');
+  if(lb){
+    var lbImg=document.getElementById('lb-img'),lbCount=document.getElementById('lb-count'),lbDl=document.getElementById('lb-dl');
+    function lbShow(i){if(!PHOTOS.length)return;LBI=(i+PHOTOS.length)%PHOTOS.length;var p=PHOTOS[LBI];lbImg.src=OPEN?p.f:p.t;if(lbCount)lbCount.textContent=(LBI+1)+' / '+PHOTOS.length;if(lbDl)lbDl.href=p.f;lb.classList.add('on');document.body.style.overflow='hidden';}
+    function lbClose(){lb.classList.remove('on');lbImg.src='';document.body.style.overflow='';}
+    Array.prototype.forEach.call(document.querySelectorAll('.ph'),function(b){b.addEventListener('click',function(){lbShow(+b.getAttribute('data-i'));});});
+    document.getElementById('lb-x').onclick=lbClose;
+    document.getElementById('lb-prev').onclick=function(e){e.stopPropagation();lbShow(LBI-1);};
+    document.getElementById('lb-next').onclick=function(e){e.stopPropagation();lbShow(LBI+1);};
+    lb.addEventListener('click',function(e){if(e.target===lb)lbClose();});
+    document.addEventListener('keydown',function(e){if(!lb.classList.contains('on'))return;if(e.key==='Escape')lbClose();else if(e.key==='ArrowLeft')lbShow(LBI-1);else if(e.key==='ArrowRight')lbShow(LBI+1);});
+  }
   document.getElementById('go').onclick=async()=>{
     const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value};
     if(!body.athleteName){document.getElementById('msg').textContent='Please enter the athlete name.';return;}
-    try{const r=await fetch(location.pathname.replace(/\\/$/,'')+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!r.ok)throw 0;document.getElementById('msg').innerHTML='<span class="ok">Order received — thank you!</span>';
+    try{const r=await fetch(location.pathname.replace(/\/$/,'')+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw 0;document.getElementById('msg').innerHTML='<span class="ok">Order received \u2014 thank you!</span>';
       document.getElementById('go').disabled=true;
-    }catch(e){document.getElementById('msg').textContent='Something went wrong — please try again.';}
+    }catch(e){document.getElementById('msg').textContent='Something went wrong \u2014 please try again.';}
   };
 </script>
 </body></html>`;
