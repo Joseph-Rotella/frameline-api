@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS galleries (
   delivery TEXT,                                -- json { recipient, at }
   share_token TEXT UNIQUE,
   expires_at TEXT,                              -- public client link expiry (ISO)
+  downloads_open INTEGER DEFAULT 0,            -- 0 = watermarked proofs only, 1 = full-res downloads unlocked
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
