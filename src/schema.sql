@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS orders (
   package TEXT, amount REAL DEFAULT 0,
   paid INTEGER DEFAULT 0, paid_at TEXT,
   date TEXT, source TEXT DEFAULT 'manual',
+  selections TEXT DEFAULT '[]',
   stripe_payment_intent TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

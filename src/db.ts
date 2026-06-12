@@ -51,6 +51,7 @@ db.exec(schema);
 // Lightweight migrations for DBs created before a column existed.
 try { db.exec('ALTER TABLE galleries ADD COLUMN expires_at TEXT'); } catch { /* already present */ }
 try { db.exec('ALTER TABLE galleries ADD COLUMN downloads_open INTEGER DEFAULT 0'); } catch { /* already present */ }
+try { db.exec("ALTER TABLE orders ADD COLUMN selections TEXT DEFAULT '[]'"); } catch { /* already present */ }
 
 export { db };
 

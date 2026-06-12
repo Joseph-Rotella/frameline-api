@@ -31,7 +31,7 @@ app.use('/uploads', express.static(config.uploadDir));
 
 app.get('/health', (_req, res) => res.json({
   ok: true,
-  version: 'gallery-fixes-3',
+  version: 'store-photo-select-1',
   features: { gmailInbox: true, tokenRefresh: true },
   integrations: { ai: aiEnabled ? 'live' : 'stub', gmail: config.google.clientId ? 'configured' : 'mailto-fallback', stripe: stripeEnabled ? 'live' : 'stub', thumbnails: sharpAvailable ? 'on' : 'off' },
 }));

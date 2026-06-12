@@ -102,12 +102,13 @@ sharePublic.get('/s/:token/download', (req: Request, res: Response) => {
 sharePublic.post('/s/:token/order', (req: Request, res: Response) => {
   const g: any = db.prepare('SELECT * FROM galleries WHERE share_token = ?').get(req.params.token);
   if (!g || isExpired(g)) return res.status(410).json({ error: 'link expired' });
-  const { athleteName, email, pkg } = req.body || {};
+  const { athleteName, email, pkg, photos } = req.body || {};
   const p: any = db.prepare('SELECT price FROM packages WHERE org_id = ? AND name = ?').get(g.org_id, pkg);
+  const selections = JSON.stringify(Array.isArray(photos) ? photos.slice(0, 200) : []);
   const id = uid();
-  db.prepare(`INSERT INTO orders (id, org_id, client_id, athlete_name, package, amount, paid, date, source)
-              VALUES (?,?,?,?,?,?,0,?, 'parent_store')`)
-    .run(id, g.org_id, g.client_id, athleteName || email || 'Guest', pkg || '', p?.price || 0, nowISO().slice(0, 10));
+  db.prepare(`INSERT INTO orders (id, org_id, client_id, athlete_name, package, amount, paid, date, source, selections)
+              VALUES (?,?,?,?,?,?,0,?, 'parent_store', ?)`)
+    .run(id, g.org_id, g.client_id, athleteName || email || 'Guest', pkg || '', p?.price || 0, nowISO().slice(0, 10), selections);
   res.json({ ok: true });
 });
 
@@ -135,7 +136,7 @@ function publicPage(base: string, g: any, studio: string, photos: any[], pkgs: a
   const img = (p: any) => `${base}/uploads/${p.thumb_key || p.original_key}`;
   const full = (p: any) => `${base}/uploads/${p.original_key}`;
   const tiles = photos.length
-    ? photos.map((p, idx) => `<button class="ph" type="button" data-i="${idx}"><img loading="lazy" src="${img(p)}" alt="" draggable="false" oncontextmenu="return false"></button>`).join('')
+    ? photos.map((p, idx) => `<div class="ph" data-i="${idx}"><img loading="lazy" src="${img(p)}" alt="" draggable="false" oncontextmenu="return false"><span class="pick" data-pick="${idx}" title="Add to order">+</span></div>`).join('')
     : `<p class="muted">Photos are being prepared \u2014 check back soon.</p>`;
   const opts = pkgs.map((p) => `<option value="${esc(p.name)}">${esc(p.name)} \u2014 $${p.price}</option>`).join('');
   const exp = g.expires_at ? new Date(g.expires_at).toLocaleDateString() : '';
@@ -147,8 +148,8 @@ function publicPage(base: string, g: any, studio: string, photos: any[], pkgs: a
   const lockBar = (!open && photos.length)
     ? `<div class="lockbar">\ud83d\udd12 These are watermarked previews \u2014 tap any photo to see it larger. Place your order below and ${esc(studio)} will unlock full-resolution downloads once your order is complete.</div>`
     : '';
-  const photoJson = JSON.stringify(photos.map((p) => ({ t: img(p), f: full(p) })));
-  const lightbox = photos.length ? `<div class="lb" id="lb"><span class="lb-x" id="lb-x">&times;</span><button class="lb-nav lb-prev" id="lb-prev" type="button">&#10094;</button><div class="lb-stage"><img id="lb-img" alt="" draggable="false" oncontextmenu="return false"><div class="lb-wm" id="lb-wm"></div></div><button class="lb-nav lb-next" id="lb-next" type="button">&#10095;</button><div class="lb-bar"><span class="lb-count" id="lb-count"></span>${open ? '<a class="lb-dl" id="lb-dl" download>Download this photo</a>' : '<span class="lb-locked">Watermarked preview</span>'}</div></div>` : '';
+  const photoJson = JSON.stringify(photos.map((p, idx) => ({ t: img(p), f: full(p), n: (p.filename || ('Photo ' + (idx + 1))) })));
+  const lightbox = photos.length ? `<div class="lb" id="lb"><span class="lb-x" id="lb-x">&times;</span><button class="lb-nav lb-prev" id="lb-prev" type="button">&#10094;</button><div class="lb-stage"><img id="lb-img" alt="" draggable="false" oncontextmenu="return false"><div class="lb-wm" id="lb-wm"></div></div><button class="lb-nav lb-next" id="lb-next" type="button">&#10095;</button><div class="lb-bar"><span class="lb-count" id="lb-count"></span><button class="lb-sel" id="lb-sel" type="button">Add to order</button>${open ? '<a class="lb-dl" id="lb-dl" download>Download this photo</a>' : '<span class="lb-locked">Watermarked preview</span>'}</div></div>` : '';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(g.name)} \u2014 ${esc(studio)}</title><style>
 :root{--ink:#1C1A17;--paper:#F1F0EC;--line:#DEDBD3;--accent:#9E2B25;}
@@ -181,7 +182,15 @@ body.locked .lb-wm{display:block}
 .lb-x{position:absolute;top:14px;right:20px;color:#fff;font-size:36px;line-height:1;cursor:pointer;z-index:2}
 .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.14);color:#fff;border:none;font-size:24px;width:46px;height:64px;border-radius:10px;cursor:pointer}
 .lb-prev{left:14px}.lb-next{right:14px}
-.lb-bar{position:absolute;bottom:18px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:14px}
+.lb-bar{position:absolute;bottom:18px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;padding:0 14px}
+.ph .pick{position:absolute;top:7px;right:7px;width:30px;height:30px;border-radius:50%;background:rgba(20,17,14,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;line-height:1;cursor:pointer;z-index:2;border:2px solid rgba(255,255,255,.7)}
+.ph.sel{outline:3px solid var(--accent);outline-offset:-3px}
+.ph.sel .pick{background:var(--accent);border-color:#fff}
+.selbar{display:none;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:11px 14px;margin:14px 0 -4px;font-size:13.5px;color:#4A453C}
+.selbar.on{display:flex}.selbar b{color:var(--accent)}
+.selbar .clr{margin-left:auto;color:#8C867B;text-decoration:underline;cursor:pointer;font-size:12.5px}
+.lb-sel{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:9px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer}
+.lb-sel.on{background:var(--accent)}
 .lb-count{color:#C7BFB1;font-size:13px}
 .lb-dl{background:var(--accent);color:#fff;text-decoration:none;border-radius:9px;padding:10px 18px;font-weight:700;font-size:14px}
 .lb-locked{color:#C7BFB1;font-size:13px}
@@ -197,6 +206,7 @@ body.locked .lb-wm{display:block}
 <div class="wrap">
   ${dlAll}${lockBar}
   <div class="grid">${tiles}</div>
+  ${photos.length ? '<div class="selbar" id="selbar"></div>' : ''}
   <div class="card"><h2>Place an order</h2>
     <label>Athlete name</label><input id="ath" placeholder="Athlete name">
     <label>Your email</label><input id="email" type="email" placeholder="you@email.com">
@@ -213,17 +223,28 @@ ${lightbox}
   var lb=document.getElementById('lb');
   if(lb){
     var lbImg=document.getElementById('lb-img'),lbCount=document.getElementById('lb-count'),lbDl=document.getElementById('lb-dl');
-    function lbShow(i){if(!PHOTOS.length)return;LBI=(i+PHOTOS.length)%PHOTOS.length;var p=PHOTOS[LBI];lbImg.src=OPEN?p.f:p.t;if(lbCount)lbCount.textContent=(LBI+1)+' / '+PHOTOS.length;if(lbDl)lbDl.href=p.f;lb.classList.add('on');document.body.style.overflow='hidden';}
+    function lbShow(i){if(!PHOTOS.length)return;LBI=(i+PHOTOS.length)%PHOTOS.length;var p=PHOTOS[LBI];lbImg.src=OPEN?p.f:p.t;if(lbCount)lbCount.textContent=(LBI+1)+' / '+PHOTOS.length;if(lbDl)lbDl.href=p.f;lb.classList.add('on');document.body.style.overflow='hidden';selRefresh();}
     function lbClose(){lb.classList.remove('on');lbImg.src='';document.body.style.overflow='';}
     Array.prototype.forEach.call(document.querySelectorAll('.ph'),function(b){b.addEventListener('click',function(){lbShow(+b.getAttribute('data-i'));});});
     document.getElementById('lb-x').onclick=lbClose;
     document.getElementById('lb-prev').onclick=function(e){e.stopPropagation();lbShow(LBI-1);};
     document.getElementById('lb-next').onclick=function(e){e.stopPropagation();lbShow(LBI+1);};
+    var lbSel=document.getElementById('lb-sel');if(lbSel)lbSel.onclick=function(){selToggle(LBI);};
     lb.addEventListener('click',function(e){if(e.target===lb)lbClose();});
     document.addEventListener('keydown',function(e){if(!lb.classList.contains('on'))return;if(e.key==='Escape')lbClose();else if(e.key==='ArrowLeft')lbShow(LBI-1);else if(e.key==='ArrowRight')lbShow(LBI+1);});
   }
+  var SEL=new Set();
+  function selName(i){return (PHOTOS[i]&&PHOTOS[i].n)||('Photo '+(i+1));}
+  function selRefresh(){
+    Array.prototype.forEach.call(document.querySelectorAll('.ph'),function(el){var i=+el.getAttribute('data-i');if(SEL.has(i))el.classList.add('sel');else el.classList.remove('sel');});
+    var bar=document.getElementById('selbar');
+    if(bar){if(SEL.size){bar.classList.add('on');bar.innerHTML='<span><b>'+SEL.size+'</b> photo'+(SEL.size>1?'s':'')+' selected for your order</span><span class="clr" id="selclr">Clear</span>';var c=document.getElementById('selclr');if(c)c.onclick=function(){SEL.clear();selRefresh();};}else{bar.classList.remove('on');bar.innerHTML='';}}
+    var ls=document.getElementById('lb-sel');if(ls){var on=SEL.has(LBI);ls.classList.toggle('on',on);ls.textContent=on?'\u2713 Selected':'Add to order';}
+  }
+  function selToggle(i){if(SEL.has(i))SEL.delete(i);else SEL.add(i);selRefresh();}
+  Array.prototype.forEach.call(document.querySelectorAll('.pick'),function(b){b.addEventListener('click',function(e){e.stopPropagation();selToggle(+b.getAttribute('data-pick'));});});
   document.getElementById('go').onclick=async()=>{
-    const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value};
+    const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value,photos:Array.from(SEL).map(selName)};
     if(!body.athleteName){document.getElementById('msg').textContent='Please enter the athlete name.';return;}
     document.getElementById('msg').textContent='';
     try{const base=location.pathname.charAt(location.pathname.length-1)==='/'?location.pathname.slice(0,-1):location.pathname;const r=await fetch(base+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

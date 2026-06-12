@@ -98,7 +98,7 @@ export const RESOURCES: Record<string, ResourceDef> = {
   'picture-days': { table: 'picture_days', cols: ['client_id', 'date', 'time', 'location', 'status', 'team_ids', 'notes'], json: ['team_ids'], filters: ['client_id'] },
   packages: { table: 'packages', cols: ['name', 'price'] },
   galleries: { table: 'galleries', cols: ['client_id', 'team_id', 'name', 'status', 'ai_organized', 'tags', 'notes', 'delivery', 'share_token'], json: ['tags', 'delivery'], bool: ['ai_organized'], filters: ['client_id'] },
-  orders: { table: 'orders', cols: ['client_id', 'athlete_name', 'package', 'amount', 'paid', 'paid_at', 'date', 'source'], bool: ['paid'], filters: ['client_id'] },
+  orders: { table: 'orders', cols: ['client_id', 'athlete_name', 'package', 'amount', 'paid', 'paid_at', 'date', 'source', 'selections'], bool: ['paid'], filters: ['client_id'] },
   appointments: { table: 'appointments', cols: ['client_id', 'title', 'type', 'date', 'time', 'duration_min', 'notes', 'done'], bool: ['done'], filters: ['client_id'] },
   tasks: { table: 'tasks', cols: ['client_id', 'title', 'due', 'priority', 'done'], bool: ['done'], filters: ['client_id'] },
   documents: { table: 'documents', cols: ['client_id', 'name', 'type', 'status', 'date', 'body'], filters: ['client_id'] },
