@@ -18,14 +18,15 @@ email.post('/emails/send', async (req: Authed, res: Response) => {
   const cred: any = db.prepare("SELECT * FROM integration_credentials WHERE org_id = ? AND provider = 'gmail'").get(req.orgId);
   let gmailMessageId: string | null = null;
   let delivered = false;
+  let sendError = '';
 
   if (cred) {
     try {
       gmailMessageId = await sendViaGmail(req.orgId!, { to, subject, body });
       delivered = true;
     } catch (e) {
-      // Fall back to record-only; surface the reason for debugging.
-      console.warn('Gmail send failed, recording only:', (e as Error).message);
+      sendError = (e as Error).message;
+      console.warn('Gmail send failed, recording only:', sendError);
     }
   }
 
@@ -35,7 +36,11 @@ email.post('/emails/send', async (req: Authed, res: Response) => {
     .run(id, req.orgId, clientId || null, to, 'sent', subject || '', body || '', gmailMessageId,
          JSON.stringify(attachments || []), nowISO());
 
-  res.status(201).json({ id, delivered, via: delivered ? 'gmail-api' : 'recorded', note: delivered ? 'Sent through connected Gmail.' : 'Recorded to thread. Connect Gmail (or use the mailto hand-off) to deliver.' });
+  res.status(201).json({
+    id, delivered, via: delivered ? 'gmail-api' : 'recorded',
+    error: sendError || undefined,
+    note: delivered ? 'Sent through connected Gmail.' : (cred ? ('Gmail did not deliver: ' + sendError) : 'Recorded. Connect Gmail to deliver.'),
+  });
 });
 
 email.get('/emails', (req: Authed, res: Response) => {
