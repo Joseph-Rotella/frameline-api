@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS orders (
   paid INTEGER DEFAULT 0, paid_at TEXT,
   date TEXT, source TEXT DEFAULT 'manual',
   selections TEXT DEFAULT '[]',
+  email TEXT, phone TEXT,
   stripe_payment_intent TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -176,3 +177,14 @@ CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_emails_client ON emails(client_id, sent_at);
 CREATE INDEX IF NOT EXISTS idx_pd_org_date ON picture_days(org_id, date);
 CREATE INDEX IF NOT EXISTS idx_appts_org_date ON appointments(org_id, date);
+
+CREATE TABLE IF NOT EXISTS parent_codes (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  attempts INTEGER DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_parent_codes_email ON parent_codes(org_id, email);

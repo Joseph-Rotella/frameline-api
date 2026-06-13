@@ -102,13 +102,13 @@ sharePublic.get('/s/:token/download', (req: Request, res: Response) => {
 sharePublic.post('/s/:token/order', (req: Request, res: Response) => {
   const g: any = db.prepare('SELECT * FROM galleries WHERE share_token = ?').get(req.params.token);
   if (!g || isExpired(g)) return res.status(410).json({ error: 'link expired' });
-  const { athleteName, email, pkg, photos } = req.body || {};
+  const { athleteName, email, phone, pkg, photos } = req.body || {};
   const p: any = db.prepare('SELECT price FROM packages WHERE org_id = ? AND name = ?').get(g.org_id, pkg);
   const selections = JSON.stringify(Array.isArray(photos) ? photos.slice(0, 200) : []);
   const id = uid();
-  db.prepare(`INSERT INTO orders (id, org_id, client_id, athlete_name, package, amount, paid, date, source, selections)
-              VALUES (?,?,?,?,?,?,0,?, 'parent_store', ?)`)
-    .run(id, g.org_id, g.client_id, athleteName || email || 'Guest', pkg || '', p?.price || 0, nowISO().slice(0, 10), selections);
+  db.prepare(`INSERT INTO orders (id, org_id, client_id, athlete_name, package, amount, paid, date, source, selections, email, phone)
+              VALUES (?,?,?,?,?,?,0,?, 'parent_store', ?,?,?)`)
+    .run(id, g.org_id, g.client_id, athleteName || email || 'Guest', pkg || '', p?.price || 0, nowISO().slice(0, 10), selections, email || '', phone || '');
   res.json({ ok: true });
 });
 
@@ -210,6 +210,7 @@ body.locked .lb-wm{display:block}
   <div class="card"><h2>Place an order</h2>
     <label>Athlete name</label><input id="ath" placeholder="Athlete name">
     <label>Your email</label><input id="email" type="email" placeholder="you@email.com">
+    <label>Mobile number (optional)</label><input id="phone" type="tel" placeholder="(555) 123-4567">
     <label>Package</label><select id="pkg">${opts || '<option>Standard</option>'}</select>
     <button class="order" id="go">Place order</button>
     <div id="msg" class="note"></div>
@@ -244,7 +245,7 @@ ${lightbox}
   function selToggle(i){if(SEL.has(i))SEL.delete(i);else SEL.add(i);selRefresh();}
   Array.prototype.forEach.call(document.querySelectorAll('.pick'),function(b){b.addEventListener('click',function(e){e.stopPropagation();selToggle(+b.getAttribute('data-pick'));});});
   document.getElementById('go').onclick=async()=>{
-    const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,pkg:document.getElementById('pkg').value,photos:Array.from(SEL).map(selName)};
+    const body={athleteName:document.getElementById('ath').value,email:document.getElementById('email').value,phone:document.getElementById('phone').value,pkg:document.getElementById('pkg').value,photos:Array.from(SEL).map(selName)};
     if(!body.athleteName){document.getElementById('msg').textContent='Please enter the athlete name.';return;}
     document.getElementById('msg').textContent='';
     try{const base=location.pathname.charAt(location.pathname.length-1)==='/'?location.pathname.slice(0,-1):location.pathname;const r=await fetch(base+'/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

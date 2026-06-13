@@ -52,6 +52,8 @@ db.exec(schema);
 try { db.exec('ALTER TABLE galleries ADD COLUMN expires_at TEXT'); } catch { /* already present */ }
 try { db.exec('ALTER TABLE galleries ADD COLUMN downloads_open INTEGER DEFAULT 0'); } catch { /* already present */ }
 try { db.exec("ALTER TABLE orders ADD COLUMN selections TEXT DEFAULT '[]'"); } catch { /* already present */ }
+try { db.exec('ALTER TABLE orders ADD COLUMN email TEXT'); } catch { /* already present */ }
+try { db.exec('ALTER TABLE orders ADD COLUMN phone TEXT'); } catch { /* already present */ }
 
 export { db };
 

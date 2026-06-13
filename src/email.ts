@@ -166,7 +166,7 @@ email.get('/gmail/messages', async (req: Authed, res: Response) => {
   }
 });
 
-async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string }): Promise<string> {
+export async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string }): Promise<string> {
   const accessToken = await getGmailAccessToken(orgId);
   const raw = Buffer.from(
     `To: ${msg.to}\r\nSubject: ${msg.subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${msg.body}`
