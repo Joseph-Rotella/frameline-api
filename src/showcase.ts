@@ -42,6 +42,10 @@ function cleanConfig(incoming: any): any {
     font: ['grotesk', 'serif', 'mono'].includes(d.font) ? d.font : 'grotesk',
     cover: String(d.cover || '').slice(0, 1200),
     rounded: d.rounded !== false,
+    coverPosX: ['left', 'center', 'right'].includes(d.coverPosX) ? d.coverPosX : 'center',
+    coverPosY: ['top', 'center', 'bottom'].includes(d.coverPosY) ? d.coverPosY : 'center',
+    coverHeight: ['short', 'medium', 'tall'].includes(d.coverHeight) ? d.coverHeight : 'medium',
+    coverShade: ['light', 'medium', 'dark'].includes(d.coverShade) ? d.coverShade : 'medium',
   };
   return {
     headline: String(i.headline || '').slice(0, 200),
@@ -170,8 +174,13 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
 </section>` : '';
 
   const headerInner = `<div class="kicker">${esc(name)}</div><h1>${esc(c.headline || name + ' \u2014 Our Work')}</h1>${c.intro ? `<p class="intro">${esc(c.intro)}</p>` : ''}`;
+  const shadeMap: any = { light: 'rgba(0,0,0,.16),rgba(0,0,0,.30)', medium: 'rgba(0,0,0,.34),rgba(0,0,0,.58)', dark: 'rgba(0,0,0,.5),rgba(0,0,0,.72)' };
+  const heightMap: any = { short: 240, medium: 380, tall: 560 };
+  const coverShade = shadeMap[design.coverShade] || shadeMap.medium;
+  const coverMinH = heightMap[design.coverHeight] || heightMap.medium;
+  const coverPos = `${design.coverPosX || 'center'} ${design.coverPosY || 'center'}`;
   const hero = design.cover
-    ? `<header class="hero" style="background-image:linear-gradient(rgba(0,0,0,.34),rgba(0,0,0,.58)),url('${esc(design.cover)}')"><div class="hero-in">${headerInner}</div></header>`
+    ? `<header class="hero" style="min-height:${coverMinH}px;background-image:linear-gradient(${coverShade}),url('${esc(design.cover)}');background-position:${coverPos}"><div class="hero-in">${headerInner}</div></header>`
     : '';
 
   const body = items.length ? `<div class="grid">${cells}</div>` : `<div class="empty">This showcase is being put together. Check back soon.</div>`;
@@ -188,8 +197,8 @@ body{background:var(--paper);color:var(--ink);font-family:'Space Grotesk',system
 h1,h2,.kicker{font-family:${headFont(design.font)}}
 .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
 header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
-.hero{background-size:cover;background-position:center;border-bottom:1px solid var(--line)}
-.hero-in{max-width:1100px;margin:0 auto;padding:94px 20px 74px}
+.hero{background-size:cover;background-repeat:no-repeat;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.hero-in{max-width:1100px;margin:0 auto;padding:30px 20px;width:100%}
 .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
 h1{font-size:clamp(28px,5vw,46px);line-height:1.05;margin:10px 0 0;font-weight:700;letter-spacing:-.01em}
 .intro{font-size:16px;color:var(--soft);max-width:660px;margin:16px 0 0;line-height:1.55;white-space:pre-wrap}
