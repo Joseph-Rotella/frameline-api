@@ -54,6 +54,7 @@ function cleanConfig(incoming: any): any {
     coverPosY: clampPct(d.coverPosY, 50),
     coverHeight: ['short', 'medium', 'tall'].includes(d.coverHeight) ? d.coverHeight : 'medium',
     coverShade: ['light', 'medium', 'dark'].includes(d.coverShade) ? d.coverShade : 'medium',
+    intro: d.intro !== false,
   };
   return {
     headline: String(i.headline || '').slice(0, 200),
@@ -120,10 +121,90 @@ function themeVars(design){
 }
 function headFont(font){ if (font === 'serif') return "Georgia,'Times New Roman',serif"; if (font === 'mono') return "'Space Mono',monospace"; return "'Space Grotesk',system-ui,sans-serif"; }
 
+
+function cameraSvgMarkup(): string {
+  const tex = [90,105,120,135,150,165,180,195,210].map(y=>`<line x1="22" y1="${y}" x2="338" y2="${y}" stroke="rgba(255,255,255,0.015)" stroke-width="1"/>`).join('');
+  const shoe = [162,170,178,186,194].map(x=>`<line x1="${x}" y1="16" x2="${x}" y2="24" stroke="#1e1e22" stroke-width="1"/>`).join('');
+  const mode = [0,45,90,135,180,225,270,315].map(a=>{const r=a*Math.PI/180;return `<line x1="${(66+Math.cos(r)*11).toFixed(2)}" y1="${(82+Math.sin(r)*11).toFixed(2)}" x2="${(66+Math.cos(r)*16).toFixed(2)}" y2="${(82+Math.sin(r)*16).toFixed(2)}" stroke="#3a3a3e" stroke-width="1.5"/>`;}).join('');
+  const cmd = [0,1,2,3,4,5,6].map(i=>`<line x1="${215+i*6}" y1="54" x2="${215+i*6}" y2="72" stroke="#2e2e32" stroke-width="1"/>`).join('');
+  const focus = Array.from({length:36}).map((_,i)=>{const a=i/36*Math.PI*2;return `<line x1="${(180+Math.cos(a)*62).toFixed(2)}" y1="${(155+Math.sin(a)*62).toFixed(2)}" x2="${(180+Math.cos(a)*68).toFixed(2)}" y2="${(155+Math.sin(a)*68).toFixed(2)}" stroke="#2a2a2e" stroke-width="1.2"/>`;}).join('');
+  const ap = ([[-80,'2.8'],[-40,'4'],[0,'5.6'],[40,'8'],[80,'11']] as [number,string][]).map(([a,l])=>{const r=a*Math.PI/180;return `<text x="${(180+Math.cos(r)*52).toFixed(2)}" y="${(155+Math.sin(r)*52+2).toFixed(2)}" fill="#2a2a2e" font-size="5" font-family="monospace" text-anchor="middle">${l}</text>`;}).join('');
+  const iris = [0,60,120,180,240,300].map(angle=>{const r=angle*Math.PI/180;const bx=180+Math.cos(r)*24;const by=155+Math.sin(r)*24;return `<ellipse cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" rx="26" ry="13" fill="#0A0A0B" transform="rotate(${angle+90}, ${bx.toFixed(2)}, ${by.toFixed(2)})"/>`;}).join('');
+  const fl = [0,30,60,90,120,150,180,210,240,270,300,330].map(a=>{const r=a*Math.PI/180;return `<line x1="${(180+Math.cos(r)*50).toFixed(2)}" y1="${(155+Math.sin(r)*50).toFixed(2)}" x2="${(180+Math.cos(r)*80).toFixed(2)}" y2="${(155+Math.sin(r)*80).toFixed(2)}" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>`;}).join('');
+  const back = [115,130,145,160].map(cy=>`<circle cx="320" cy="${cy}" r="5" fill="#181819" stroke="#2a2a2e" stroke-width="1"/>`).join('');
+  return `<svg viewBox="0 0 360 250" width="340" height="240" fill="none" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="180" cy="242" rx="110" ry="6" fill="rgba(0,0,0,0.6)"/>
+<rect x="18" y="72" width="324" height="162" rx="16" fill="#1c1c1e"/><rect x="18" y="72" width="324" height="162" rx="16" stroke="#3a3a3e" stroke-width="1.5"/>
+${tex}
+<rect x="90" y="48" width="180" height="28" rx="6" fill="#161618"/><rect x="90" y="48" width="180" height="28" rx="6" stroke="#2e2e32" stroke-width="1"/>
+<path d="M130 48 L150 22 L210 22 L230 48 Z" fill="#121214" stroke="#2a2a2e" stroke-width="1"/>
+<rect x="155" y="16" width="50" height="8" rx="2" fill="#0e0e10" stroke="#222226" stroke-width="1"/>${shoe}
+<g class="btn"><circle cx="296" cy="82" r="11" fill="#202022" stroke="#3c3c40" stroke-width="1.2"/><circle cx="296" cy="82" r="6" fill="#181819"/><circle cx="296" cy="82" r="2.5" fill="#cc3333"/></g>
+<circle cx="66" cy="82" r="18" fill="#161618" stroke="#2e2e32" stroke-width="1.2"/>${mode}<circle cx="66" cy="82" r="5" fill="#0e0e10"/>
+<text x="59" y="79" fill="#666" font-size="5" font-family="monospace" font-weight="bold">A</text>
+<rect x="210" y="52" width="46" height="22" rx="5" fill="#181819" stroke="#2a2a2e" stroke-width="1"/>${cmd}
+<rect x="96" y="52" width="106" height="20" rx="3" fill="#0a1a0a" stroke="#1e2e1e" stroke-width="1"/>
+<text x="101" y="63" fill="#33aa33" font-size="6" font-family="monospace" letter-spacing="1.5">1/250  F2.8</text>
+<text x="101" y="70" fill="#33aa33" font-size="5" font-family="monospace" letter-spacing="1">ISO 400</text>
+<circle cx="180" cy="155" r="76" fill="#141416" stroke="#2e2e32" stroke-width="2"/>
+<circle cx="180" cy="155" r="70" fill="#111113" stroke="#3a3a3e" stroke-width="1.5"/>${focus}
+<circle cx="180" cy="155" r="58" fill="#0d0d0f" stroke="#252528" stroke-width="1"/>${ap}
+<circle cx="180" cy="155" r="48" fill="#080809"/>
+<circle cx="180" cy="155" r="42" fill="#050506" stroke="#1a1a1e" stroke-width="0.5"/>
+<g class="iris">${iris}</g>
+<circle class="flare" cx="180" cy="155" r="42" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+<ellipse cx="165" cy="142" rx="12" ry="8" fill="rgba(255,255,255,0.035)"/>
+<ellipse cx="192" cy="165" rx="6" ry="3.5" fill="rgba(255,255,255,0.02)"/>
+<circle cx="175" cy="148" r="2" fill="rgba(255,255,255,0.05)"/>
+<text x="230" y="148" fill="#2a2a2e" font-size="5.5" font-family="monospace" letter-spacing="1">AF/MF</text>
+<text x="232" y="158" fill="#252528" font-size="5" font-family="monospace">67mm</text>
+<text x="32" y="106" fill="#2a2a2e" font-size="6" font-family="monospace" letter-spacing="1">ISO</text>
+<text x="32" y="116" fill="#303035" font-size="7" font-family="monospace" letter-spacing="0.5">400</text>
+<rect x="22" y="208" width="22" height="10" rx="3" fill="#141416" stroke="#252528" stroke-width="1"/>
+<rect x="316" y="208" width="22" height="10" rx="3" fill="#141416" stroke="#252528" stroke-width="1"/>
+${back}
+<g class="flines">${fl}<circle cx="180" cy="155" r="50" fill="rgba(255,255,255,0.06)"/></g>
+</svg>`;
+}
+
+function introBlock(name: string): { style: string; markup: string; script: string } {
+  const style = `<style>
+.intro{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0A0A0B}
+.intro .cam{display:flex;flex-direction:column;align-items:center;animation:camIn .7s cubic-bezier(.22,1,.36,1) both}
+.intro .brand{margin-top:22px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.55em;text-transform:uppercase;color:rgba(255,255,255,.22);animation:introFade .6s ease .6s both}
+.intro .flash-layer{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.intro .iris,.intro .flare,.intro .flines{opacity:0}
+.intro .flare{transform-box:fill-box;transform-origin:center}
+.intro.wiggle .cam-inner{animation:introWig 1.2s ease-in-out}
+.intro.shutter .cam-inner{animation:introShk .25s ease-in-out}
+.intro.shutter .btn{animation:introPrs .2s ease-in-out}
+.intro.shutter .iris{animation:introIrs .3s ease both}
+.intro.shutter .flare{animation:introFlr .3s ease both}
+.intro.shutter .flines{animation:introFls .25s ease .05s both}
+.intro.flash .flash-layer,.intro.fadeout .flash-layer{opacity:1;transition:opacity .12s ease}
+.intro.flash .cam,.intro.fadeout .cam{opacity:0;transform:scale(1.12);filter:blur(6px);transition:.3s ease}
+.intro.fadeout{opacity:0;transition:opacity .8s ease-out}
+@keyframes camIn{from{opacity:0;transform:translateY(40px) scale(.8)}to{opacity:1;transform:none}}
+@keyframes introFade{from{opacity:0}to{opacity:1}}
+@keyframes introWig{0%{transform:translateY(0) rotate(0)}25%{transform:translateY(-4px) rotate(-.5deg)}50%{transform:translateY(0) rotate(0)}75%{transform:translateY(-3px) rotate(.5deg)}100%{transform:translateY(0) rotate(0)}}
+@keyframes introShk{0%{transform:scale(1) translateY(0)}30%{transform:scale(.97) translateY(3px)}60%{transform:scale(1.02) translateY(-1px)}100%{transform:scale(1) translateY(0)}}
+@keyframes introPrs{0%{transform:translateY(0)}50%{transform:translateY(3px)}100%{transform:translateY(0)}}
+@keyframes introIrs{0%{opacity:0}15%{opacity:1}50%{opacity:.8}100%{opacity:0}}
+@keyframes introFlr{0%{opacity:0;transform:scale(1)}50%{opacity:.5;transform:scale(1.24)}100%{opacity:0;transform:scale(1.55)}}
+@keyframes introFls{0%{opacity:0}40%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.intro{display:none}}
+</style>`;
+  const markup = `<div id="intro" class="intro idle"><div class="cam"><div class="cam-inner">${cameraSvgMarkup()}</div><p class="brand">${esc(name)}</p></div><div class="flash-layer"></div></div>`;
+  const script = `<script>(function(){var o=document.getElementById('intro');if(!o)return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){if(o.parentNode)o.parentNode.removeChild(o);return;}document.body.style.overflow='hidden';function go(p){o.className='intro '+p;}var t=[];t.push(setTimeout(function(){go('wiggle');},800));t.push(setTimeout(function(){go('shutter');},1600));t.push(setTimeout(function(){go('flash');},1900));t.push(setTimeout(function(){go('fadeout');},2200));t.push(setTimeout(done,3000));function done(){for(var i=0;i<t.length;i++)clearTimeout(t[i]);if(o.parentNode)o.parentNode.removeChild(o);document.body.style.overflow='';}o.addEventListener('click',done);})();</script>`;
+  return { style, markup, script };
+}
+
 function workPage(orgId: string, name: string, c: any, profile: any): string {
   const design = c.design || { theme: 'paper', accent: '#9E2B25', layout: 'masonry', font: 'grotesk', cover: '', rounded: true };
   const rad = design.rounded === false ? 0 : 12;
   const layout = design.layout || 'masonry';
+  const introOn = design.intro !== false;
+  const ib = introOn ? introBlock(name) : { style: '', markup: '', script: '' };
   const items: any[] = c.items || [];
 
   const cells = items.map((it) => {
@@ -236,7 +317,8 @@ figcaption{font-size:13px;color:var(--soft);padding:10px 12px;border-top:1px sol
 footer{padding:22px 0 40px;text-align:center;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em}
 .lb{position:fixed;inset:0;background:rgba(10,9,8,.94);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out}
 .lb.on{display:flex}.lb img{max-width:94vw;max-height:92vh;border-radius:8px}
-</style></head><body>
+</style>${ib.style}</head><body>
+${ib.markup}
 ${hero}
 <div class="wrap">
 ${design.cover ? '' : `<header>${headerInner}</header>`}
@@ -263,6 +345,7 @@ fetch('/work/${orgId}/inquiry',{method:'POST',headers:{'Content-Type':'applicati
 function v(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 })();
 </script>
+${ib.script}
 </body></html>`;
 }
 
