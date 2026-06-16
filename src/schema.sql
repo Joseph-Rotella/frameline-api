@@ -189,3 +189,14 @@ CREATE TABLE IF NOT EXISTS parent_codes (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_parent_codes_email ON parent_codes(org_id, email);
+
+CREATE TABLE IF NOT EXISTS inquiries (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name TEXT,
+  email TEXT,
+  phone TEXT,
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'new',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
