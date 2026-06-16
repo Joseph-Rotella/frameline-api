@@ -26,6 +26,14 @@ function orgRow(orgId: string): any {
   return db.prepare('SELECT name, profile FROM organizations WHERE id = ?').get(orgId) || {};
 }
 
+function clampPct(v: any, def: number): number {
+  if (typeof v === 'number' && isFinite(v)) return Math.max(0, Math.min(100, v));
+  const map: any = { left: 0, top: 0, center: 50, right: 100, bottom: 100 };
+  if (typeof v === 'string' && v in map) return map[v];
+  const n = parseFloat(v);
+  return isFinite(n) ? Math.max(0, Math.min(100, n)) : def;
+}
+
 function cleanConfig(incoming: any): any {
   const i = incoming && typeof incoming === 'object' ? incoming : {};
   const items = Array.isArray(i.items) ? i.items.slice(0, 300).map((it: any) => ({
@@ -42,8 +50,8 @@ function cleanConfig(incoming: any): any {
     font: ['grotesk', 'serif', 'mono'].includes(d.font) ? d.font : 'grotesk',
     cover: String(d.cover || '').slice(0, 1200),
     rounded: d.rounded !== false,
-    coverPosX: ['left', 'center', 'right'].includes(d.coverPosX) ? d.coverPosX : 'center',
-    coverPosY: ['top', 'center', 'bottom'].includes(d.coverPosY) ? d.coverPosY : 'center',
+    coverPosX: clampPct(d.coverPosX, 50),
+    coverPosY: clampPct(d.coverPosY, 50),
     coverHeight: ['short', 'medium', 'tall'].includes(d.coverHeight) ? d.coverHeight : 'medium',
     coverShade: ['light', 'medium', 'dark'].includes(d.coverShade) ? d.coverShade : 'medium',
   };
@@ -178,7 +186,7 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
   const heightMap: any = { short: 240, medium: 380, tall: 560 };
   const coverShade = shadeMap[design.coverShade] || shadeMap.medium;
   const coverMinH = heightMap[design.coverHeight] || heightMap.medium;
-  const coverPos = `${design.coverPosX || 'center'} ${design.coverPosY || 'center'}`;
+  const coverPos = `${design.coverPosX}% ${design.coverPosY}%`;
   const hero = design.cover
     ? `<header class="hero" style="min-height:${coverMinH}px;background-image:linear-gradient(${coverShade}),url('${esc(design.cover)}');background-position:${coverPos}"><div class="hero-in">${headerInner}</div></header>`
     : '';
