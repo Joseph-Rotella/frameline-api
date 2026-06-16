@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   profile TEXT NOT NULL DEFAULT '{}',          -- json { email, phone, address }
+  showcase_json TEXT NOT NULL DEFAULT '{}',    -- json { headline, intro, contactOn, items[] }
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

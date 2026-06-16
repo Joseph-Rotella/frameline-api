@@ -54,6 +54,7 @@ try { db.exec('ALTER TABLE galleries ADD COLUMN downloads_open INTEGER DEFAULT 0
 try { db.exec("ALTER TABLE orders ADD COLUMN selections TEXT DEFAULT '[]'"); } catch { /* already present */ }
 try { db.exec('ALTER TABLE orders ADD COLUMN email TEXT'); } catch { /* already present */ }
 try { db.exec('ALTER TABLE orders ADD COLUMN phone TEXT'); } catch { /* already present */ }
+try { db.exec("ALTER TABLE organizations ADD COLUMN showcase_json TEXT NOT NULL DEFAULT '{}'"); } catch { /* already present */ }
 
 export { db };
 

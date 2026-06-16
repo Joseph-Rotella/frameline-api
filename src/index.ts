@@ -12,6 +12,7 @@ import { ai, aiEnabled } from './ai';
 import { payments, stripeWebhook, stripeEnabled } from './payments';
 import { shareOwner, sharePublic, purgeExpired } from './share';
 import { portal, portalOwner } from './portal';
+import { showcase, showcaseOwner } from './showcase';
 
 seedIfEmpty();
 purgeExpired();
@@ -32,7 +33,7 @@ app.use('/uploads', express.static(config.uploadDir));
 
 app.get('/health', (_req, res) => res.json({
   ok: true,
-  version: 'parent-portal-2',
+  version: 'showcase-1',
   features: { gmailInbox: true, tokenRefresh: true },
   integrations: { ai: aiEnabled ? 'live' : 'stub', gmail: config.google.clientId ? 'configured' : 'mailto-fallback', stripe: stripeEnabled ? 'live' : 'stub', thumbnails: sharpAvailable ? 'on' : 'off' },
 }));
@@ -42,6 +43,7 @@ app.use('/auth', auth);
 // Public client gallery links (no auth)
 app.use(sharePublic);
 app.use(portal);
+app.use(showcase);
 // Public Gmail OAuth callback (Google redirects here without auth)
 app.use(emailPublic);
 
@@ -65,6 +67,7 @@ app.use(requireAuth, ai);
 app.use(requireAuth, payments);
 app.use(requireAuth, shareOwner);
 app.use(requireAuth, portalOwner);
+app.use(requireAuth, showcaseOwner);
 app.post('/admin/purge', requireAuth, (_req, res) => res.json({ purged: purgeExpired() }));
 
 // 404 + error handler
