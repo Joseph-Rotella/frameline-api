@@ -217,7 +217,7 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
       return `<figure class="cell wide">${inner}${cap}</figure>`;
     }
     if (it.kind === 'video') {
-      return `<figure class="cell wide"><div class="vid"><video src="${esc(it.src)}" controls preload="metadata" playsinline></video></div>${cap}</figure>`;
+      return `<figure class="cell"><div class="vid videofile"><video src="${esc(it.src)}" controls preload="metadata" playsinline></video><span class="playbtn" aria-hidden="true"></span></div>${cap}</figure>`;
     }
     return `<figure class="cell"><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.caption || '')}" oncontextmenu="return false">${cap}</figure>`;
   }).join('');
@@ -292,8 +292,12 @@ header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
 h1{font-size:clamp(28px,5vw,46px);line-height:1.05;margin:10px 0 0;font-weight:700;letter-spacing:-.01em}
 .intro{font-size:16px;color:var(--soft);max-width:660px;margin:16px 0 0;line-height:1.55;white-space:pre-wrap}
 ${gridCss}
-.vid{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.vid{position:relative;width:100%;aspect-ratio:16/9;background:#0d0d0f;overflow:hidden}
 .vid iframe,.vid video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.vid.videofile video{object-fit:contain;background:#0d0d0f}
+.vid .playbtn{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(0,0,0,.5);box-shadow:0 0 0 1px rgba(255,255,255,.28);pointer-events:none}
+.vid .playbtn:after{content:"";position:absolute;left:20px;top:15px;border-style:solid;border-width:11px 0 11px 18px;border-color:transparent transparent transparent #fff}
+.vid video:hover + .playbtn{opacity:0;transition:opacity .2s}
 figcaption{font-size:13px;color:var(--soft);padding:10px 12px;border-top:1px solid var(--line)}
 .ext{display:block;padding:18px;font-family:'Space Mono',monospace;font-size:13px;color:var(--ink);text-decoration:none}
 .reqform{padding:40px 0 12px;border-top:1px solid var(--line);text-align:center}
@@ -343,6 +347,7 @@ fetch('/work/${orgId}/inquiry',{method:'POST',headers:{'Content-Type':'applicati
 .catch(function(){note.textContent='Network error. Please try again.';note.className='rf-note err';b.disabled=false;});
 });}
 function v(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+document.querySelectorAll('.vid.videofile video').forEach(function(vd){vd.addEventListener('play',function(){var b=vd.parentNode.querySelector('.playbtn');if(b)b.style.display='none';});});
 })();
 </script>
 ${ib.script}
