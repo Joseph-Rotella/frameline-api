@@ -24,6 +24,19 @@ function transcodeToMp4(input: string, outMp4: string, outPoster: string): Promi
   });
 }
 
+// Background transcode queue: convert one clip at a time so we never block the upload
+// request (which would time out for big/high-res files) and never run two ffmpegs at once
+// on a small instance. The mp4/poster URLs are deterministic, so the page can reference them
+// immediately; the files simply appear when conversion finishes (~tens of seconds).
+let transcodeQueue: Promise<void> = Promise.resolve();
+function queueTranscode(input: string, outMp4: string, outPoster: string): void {
+  transcodeQueue = transcodeQueue.then(() =>
+    transcodeToMp4(input, outMp4, outPoster)
+      .then(() => { try { fs.unlinkSync(input); } catch { /* ignore */ } })
+      .catch((e) => { console.error('[transcode FAIL]', input, '→', e && (e.stack || e.message || e)); try { fs.copyFileSync(input, outMp4); } catch { /* ignore */ } }) // fallback: serve original bytes so the link still resolves
+  );
+}
+
 // Up to 200MB per file — fine for short phone clips; longer videos should use a YouTube/Vimeo link.
 const upload = multer({ dest: path.join(config.uploadDir, 'tmp'), limits: { fileSize: 200 * 1024 * 1024 } });
 
@@ -106,19 +119,12 @@ showcaseOwner.post('/showcase/media', upload.array('files', 20), async (req: Aut
     const ext = (path.extname(f.originalname) || '').toLowerCase();
     const isVideo = /^video\//.test(f.mimetype || '') || ['.mov', '.mp4', '.m4v', '.webm', '.ogg', '.avi', '.mkv', '.hevc'].includes(ext);
     if (isVideo) {
-      const mp4 = path.join(dir, `${id}.mp4`);
-      const jpg = path.join(dir, `${id}.jpg`);
-      try {
-        await transcodeToMp4(f.path, mp4, jpg);
-        try { fs.unlinkSync(f.path); } catch { /* ignore */ }
-        const hasPoster = fs.existsSync(jpg);
-        out.push({ id, kind: 'video', src: pub(req, `showcase/${req.orgId}/${id}.mp4`), poster: hasPoster ? pub(req, `showcase/${req.orgId}/${id}.jpg`) : '', filename: f.originalname });
-      } catch (e) {
-        // Converter unavailable/failed — keep the original so nothing is lost.
-        const name = `${id}${ext || '.mp4'}`;
-        try { fs.renameSync(f.path, path.join(dir, name)); } catch { /* ignore */ }
-        out.push({ id, kind: 'video', src: pub(req, `showcase/${req.orgId}/${name}`), poster: '', filename: f.originalname });
-      }
+      const srcPath = path.join(dir, `${id}.upload`);
+      try { fs.renameSync(f.path, srcPath); } catch { /* ignore */ }
+      // Return deterministic URLs right away and convert in the background, so the
+      // upload request never waits on a slow transcode (which timed out for big clips).
+      queueTranscode(srcPath, path.join(dir, `${id}.mp4`), path.join(dir, `${id}.jpg`));
+      out.push({ id, kind: 'video', src: pub(req, `showcase/${req.orgId}/${id}.mp4`), poster: pub(req, `showcase/${req.orgId}/${id}.jpg`), processing: true, filename: f.originalname });
     } else {
       const name = `${id}${ext || '.jpg'}`;
       fs.renameSync(f.path, path.join(dir, name));
