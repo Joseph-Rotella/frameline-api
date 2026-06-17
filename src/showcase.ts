@@ -304,7 +304,7 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
 </div></div>
 </section>` : '';
 
-  const headerInner = `<div class="kicker">${esc(name)}</div><h1>${esc(c.headline || name + ' \u2014 Our Work')}</h1>${c.intro ? `<p class="intro">${esc(c.intro)}</p>` : ''}`;
+  const headerInner = `<div class="kicker">${esc(name)}</div><h1>${esc(c.headline || name + ' \u2014 Our Work')}</h1>${c.intro ? `<p class="lede">${esc(c.intro)}</p>` : ''}`;
   const shadeMap: any = { light: 'rgba(0,0,0,.16),rgba(0,0,0,.30)', medium: 'rgba(0,0,0,.34),rgba(0,0,0,.58)', dark: 'rgba(0,0,0,.5),rgba(0,0,0,.72)' };
   const heightMap: any = { short: 240, medium: 380, tall: 560 };
   const coverShade = shadeMap[design.coverShade] || shadeMap.medium;
@@ -332,7 +332,7 @@ header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
 .hero-in{max-width:1100px;margin:0 auto;padding:30px 20px;width:100%}
 .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
 h1{font-size:clamp(28px,5vw,46px);line-height:1.05;margin:10px 0 0;font-weight:700;letter-spacing:-.01em}
-.intro{font-size:16px;color:var(--soft);max-width:660px;margin:16px 0 0;line-height:1.55;white-space:pre-wrap}
+.lede{font-size:16px;color:var(--soft);max-width:660px;margin:16px 0 0;line-height:1.55;white-space:pre-wrap}
 ${gridCss}
 .vid{position:relative;width:100%;aspect-ratio:16/9;background:#0d0d0f;overflow:hidden}
 .vid iframe,.vid video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
