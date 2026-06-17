@@ -103,12 +103,14 @@ function embedSrc(u: string): string | null {
   try {
     const url = new URL(u);
     const h = url.hostname.replace(/^www\./, '');
-    if (h === 'youtu.be') { const id = url.pathname.slice(1).split('/')[0]; return id ? `https://www.youtube.com/embed/${id}` : null; }
+    const yt = (id: string) => `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&rel=0&playsinline=1`;
+    const vm = (id: string) => `https://player.vimeo.com/video/${id}?autoplay=1&muted=1&loop=1`;
+    if (h === 'youtu.be') { const id = url.pathname.slice(1).split('/')[0]; return id ? yt(id) : null; }
     if (h.endsWith('youtube.com')) {
-      if (url.pathname === '/watch') { const id = url.searchParams.get('v'); return id ? `https://www.youtube.com/embed/${id}` : null; }
-      const m = url.pathname.match(/\/(embed|shorts)\/([^/?]+)/); if (m) return `https://www.youtube.com/embed/${m[2]}`;
+      if (url.pathname === '/watch') { const id = url.searchParams.get('v'); return id ? yt(id) : null; }
+      const m = url.pathname.match(/\/(embed|shorts)\/([^/?]+)/); if (m) return yt(m[2]);
     }
-    if (h.endsWith('vimeo.com')) { const id = url.pathname.split('/').filter(Boolean)[0]; return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null; }
+    if (h.endsWith('vimeo.com')) { const id = url.pathname.split('/').filter(Boolean)[0]; return /^\d+$/.test(id) ? vm(id) : null; }
   } catch { /* ignore */ }
   return null;
 }
@@ -217,7 +219,7 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
       return `<figure class="cell wide">${inner}${cap}</figure>`;
     }
     if (it.kind === 'video') {
-      return `<figure class="cell"><div class="vid videofile"><video src="${esc(it.src)}" controls preload="metadata" playsinline></video><span class="playbtn" aria-hidden="true"></span></div>${cap}</figure>`;
+      return `<figure class="cell"><div class="vid videofile"><video src="${esc(it.src)}" autoplay muted loop playsinline controls preload="auto"></video><span class="playbtn" aria-hidden="true"></span></div>${cap}</figure>`;
     }
     return `<figure class="cell"><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.caption || '')}" oncontextmenu="return false">${cap}</figure>`;
   }).join('');
