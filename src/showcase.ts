@@ -6,6 +6,23 @@ import { db, uid } from './db';
 import { config } from './config';
 import { Authed } from './auth';
 import { sendViaGmail } from './email';
+import { execFile } from 'child_process';
+
+// Bundled ffmpeg (optional dep); falls back to a system ffmpeg on PATH.
+let FFMPEG = 'ffmpeg';
+try { const p = require('ffmpeg-static'); if (p) FFMPEG = p; } catch { /* use PATH ffmpeg */ }
+
+// Convert any uploaded clip to a web-friendly MP4 (H.264) + a poster frame.
+// Browsers (esp. Chrome) often refuse to play .mov/QuickTime even when H.264 — MP4 always plays.
+function transcodeToMp4(input: string, outMp4: string, outPoster: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const args = ['-y', '-i', input, '-vf', "scale='min(1280,iw)':-2", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outMp4];
+    execFile(FFMPEG, args, { timeout: 180000 }, (err) => {
+      if (err) return reject(err);
+      execFile(FFMPEG, ['-y', '-ss', '0.3', '-i', outMp4, '-frames:v', '1', '-vf', "scale='min(1280,iw)':-2", outPoster], { timeout: 30000 }, () => resolve());
+    });
+  });
+}
 
 // Up to 200MB per file — fine for short phone clips; longer videos should use a YouTube/Vimeo link.
 const upload = multer({ dest: path.join(config.uploadDir, 'tmp'), limits: { fileSize: 200 * 1024 * 1024 } });
@@ -41,6 +58,7 @@ function cleanConfig(incoming: any): any {
     kind: ['photo', 'video', 'embed'].includes(it.kind) ? it.kind : 'photo',
     src: String(it.src || '').slice(0, 1200),
     caption: String(it.caption || '').slice(0, 300),
+    poster: String(it.poster || '').slice(0, 1200),
   })).filter((it: any) => it.src) : [];
   const d = i.design && typeof i.design === 'object' ? i.design : {};
   const design = {
@@ -78,7 +96,7 @@ showcaseOwner.put('/showcase', (req: Authed, res: Response) => {
 });
 
 // Upload photos/short videos straight from a device
-showcaseOwner.post('/showcase/media', upload.array('files', 20), (req: Authed, res: Response) => {
+showcaseOwner.post('/showcase/media', upload.array('files', 20), async (req: Authed, res: Response) => {
   const dir = path.join(config.uploadDir, 'showcase', req.orgId!);
   fs.mkdirSync(dir, { recursive: true });
   const files = (req.files as Express.Multer.File[]) || [];
@@ -86,10 +104,26 @@ showcaseOwner.post('/showcase/media', upload.array('files', 20), (req: Authed, r
   for (const f of files) {
     const id = uid();
     const ext = (path.extname(f.originalname) || '').toLowerCase();
-    const isVideo = /^video\//.test(f.mimetype || '') || ['.mov', '.mp4', '.m4v', '.webm', '.ogg', '.avi'].includes(ext);
-    const name = `${id}${ext || (isVideo ? '.mp4' : '.jpg')}`;
-    fs.renameSync(f.path, path.join(dir, name));
-    out.push({ id, kind: isVideo ? 'video' : 'photo', src: pub(req, `showcase/${req.orgId}/${name}`), filename: f.originalname });
+    const isVideo = /^video\//.test(f.mimetype || '') || ['.mov', '.mp4', '.m4v', '.webm', '.ogg', '.avi', '.mkv', '.hevc'].includes(ext);
+    if (isVideo) {
+      const mp4 = path.join(dir, `${id}.mp4`);
+      const jpg = path.join(dir, `${id}.jpg`);
+      try {
+        await transcodeToMp4(f.path, mp4, jpg);
+        try { fs.unlinkSync(f.path); } catch { /* ignore */ }
+        const hasPoster = fs.existsSync(jpg);
+        out.push({ id, kind: 'video', src: pub(req, `showcase/${req.orgId}/${id}.mp4`), poster: hasPoster ? pub(req, `showcase/${req.orgId}/${id}.jpg`) : '', filename: f.originalname });
+      } catch (e) {
+        // Converter unavailable/failed — keep the original so nothing is lost.
+        const name = `${id}${ext || '.mp4'}`;
+        try { fs.renameSync(f.path, path.join(dir, name)); } catch { /* ignore */ }
+        out.push({ id, kind: 'video', src: pub(req, `showcase/${req.orgId}/${name}`), poster: '', filename: f.originalname });
+      }
+    } else {
+      const name = `${id}${ext || '.jpg'}`;
+      fs.renameSync(f.path, path.join(dir, name));
+      out.push({ id, kind: 'photo', src: pub(req, `showcase/${req.orgId}/${name}`), filename: f.originalname });
+    }
   }
   res.status(201).json({ uploaded: out.length, items: out });
 });
@@ -219,7 +253,13 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
       return `<figure class="cell wide">${inner}${cap}</figure>`;
     }
     if (it.kind === 'video') {
-      return `<figure class="cell"><div class="vid videofile"><video src="${esc(it.src)}" autoplay muted loop playsinline controls preload="auto"></video><span class="playbtn" aria-hidden="true"></span></div>${cap}</figure>`;
+      let posterUrl = it.poster || '';
+      if (!posterUrl) {
+        const m = String(it.src).match(/\/uploads\/(.+)$/);
+        if (m) { const jpgRel = m[1].replace(/\.[^.]+$/, '.jpg'); try { if (fs.existsSync(path.join(config.uploadDir, jpgRel))) posterUrl = String(it.src).replace(/\.[^.]+$/, '.jpg'); } catch { /* ignore */ } }
+      }
+      const posterAttr = posterUrl ? ` poster="${esc(posterUrl)}"` : '';
+      return `<figure class="cell"><div class="vid videofile"><video src="${esc(it.src)}"${posterAttr} autoplay muted loop playsinline controls preload="auto"></video><span class="playbtn" aria-hidden="true"></span></div>${cap}</figure>`;
     }
     return `<figure class="cell"><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.caption || '')}" oncontextmenu="return false">${cap}</figure>`;
   }).join('');
