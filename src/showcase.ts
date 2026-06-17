@@ -49,7 +49,11 @@ function queueTranscode(input: string, outMp4: string, outPoster: string): void 
       // If the full-size pass fails (e.g. a very large 4K clip), retry once at a smaller size.
       .catch(() => transcodeToMp4(input, outMp4, outPoster, 854))
       .then(() => { try { fs.unlinkSync(input); } catch { /* ignore */ } })
-      .catch((e) => { console.error('[transcode FAIL]', input, '→', e && (e.stack || e.message || e)); }) // leave no broken file; the original stays for a future retry
+      .catch((e) => {
+        console.error('[transcode FAIL]', input, '→', e && (e.stack || e.message || e));
+        try { fs.writeFileSync(outMp4 + '.failed', String((e && (e.message || e)) || 'failed')); } catch { /* ignore */ }
+        try { fs.unlinkSync(input); } catch { /* ignore */ }
+      })
   );
 }
 
@@ -148,6 +152,31 @@ showcaseOwner.post('/showcase/media', upload.array('files', 20), async (req: Aut
     }
   }
   res.status(201).json({ uploaded: out.length, items: out });
+});
+
+// Report conversion status for uploaded video clips, so the editor can show
+// "Processing → Ready". Pass ?ids=a,b,c (the item ids). For each id:
+//   ready      → the converted MP4 is on disk and valid
+//   processing → still queued or converting
+//   failed     → conversion could not produce a playable file
+//   unknown    → no trace found (e.g. an old item or a photo)
+showcaseOwner.get('/showcase/media-status', (req: Authed, res: Response) => {
+  const dir = path.join(config.uploadDir, 'showcase', req.orgId!);
+  const ids = String(req.query.ids || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 50);
+  const statuses: Record<string, string> = {};
+  for (const id of ids) {
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id)) { statuses[id] = 'unknown'; continue; }
+    const mp4 = path.join(dir, `${id}.mp4`);
+    let st = 'unknown';
+    try {
+      if (fs.existsSync(mp4) && fs.statSync(mp4).size > 10000) st = 'ready';
+      else if (fs.existsSync(`${mp4}.failed`)) st = 'failed';
+      else if (fs.existsSync(`${mp4}.part`) || fs.existsSync(path.join(dir, `${id}.upload`))) st = 'processing';
+      else st = 'unknown';
+    } catch { st = 'unknown'; }
+    statuses[id] = st;
+  }
+  res.json({ statuses });
 });
 
 // ---------- Public page ----------
