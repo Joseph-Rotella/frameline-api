@@ -14,12 +14,26 @@ try { const p = require('ffmpeg-static'); if (p) FFMPEG = p; } catch { /* use PA
 
 // Convert any uploaded clip to a web-friendly MP4 (H.264) + a poster frame.
 // Browsers (esp. Chrome) often refuse to play .mov/QuickTime even when H.264 — MP4 always plays.
-function transcodeToMp4(input: string, outMp4: string, outPoster: string): Promise<void> {
+// Runs LEAN: a single thread + ultrafast preset so it fits inside a small (512MB) instance.
+// Without -threads 1, ffmpeg detects the host's many cores and spawns a thread per core, each
+// allocating frame buffers for large frames — that blows past the memory limit and the OS kills
+// ffmpeg, leaving a tiny broken file. Output is written to a .part file and only renamed into
+// place once it's confirmed valid, so a killed conversion never publishes a broken video.
+function transcodeToMp4(input: string, outMp4: string, outPoster: string, maxW = 1280): Promise<void> {
   return new Promise((resolve, reject) => {
-    const args = ['-y', '-i', input, '-vf', "scale='min(1280,iw)':-2", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outMp4];
-    execFile(FFMPEG, args, { timeout: 180000 }, (err) => {
-      if (err) return reject(err);
-      execFile(FFMPEG, ['-y', '-ss', '0.3', '-i', outMp4, '-frames:v', '1', '-vf', "scale='min(1280,iw)':-2", outPoster], { timeout: 30000 }, () => resolve());
+    const part = outMp4 + '.part';
+    const scale = `scale='min(${maxW},iw)':-2`;
+    const args = ['-y', '-i', input, '-vf', scale, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-threads', '1', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', part];
+    execFile(FFMPEG, args, { timeout: 600000, maxBuffer: 1024 * 1024 * 16 }, (err) => {
+      if (err) { try { fs.unlinkSync(part); } catch { /* ignore */ } return reject(err); }
+      let okSize = false;
+      try { okSize = fs.statSync(part).size > 10000; } catch { /* ignore */ }
+      if (!okSize) { try { fs.unlinkSync(part); } catch { /* ignore */ } return reject(new Error('transcode produced an invalid/too-small file')); }
+      // Poster from the validated output, then atomically publish the mp4.
+      execFile(FFMPEG, ['-y', '-ss', '0.3', '-i', part, '-frames:v', '1', '-vf', scale, '-threads', '1', outPoster], { timeout: 60000 }, () => {
+        try { fs.renameSync(part, outMp4); } catch (e) { return reject(e as Error); }
+        resolve();
+      });
     });
   });
 }
@@ -31,9 +45,11 @@ function transcodeToMp4(input: string, outMp4: string, outPoster: string): Promi
 let transcodeQueue: Promise<void> = Promise.resolve();
 function queueTranscode(input: string, outMp4: string, outPoster: string): void {
   transcodeQueue = transcodeQueue.then(() =>
-    transcodeToMp4(input, outMp4, outPoster)
+    transcodeToMp4(input, outMp4, outPoster, 1280)
+      // If the full-size pass fails (e.g. a very large 4K clip), retry once at a smaller size.
+      .catch(() => transcodeToMp4(input, outMp4, outPoster, 854))
       .then(() => { try { fs.unlinkSync(input); } catch { /* ignore */ } })
-      .catch((e) => { console.error('[transcode FAIL]', input, '→', e && (e.stack || e.message || e)); try { fs.copyFileSync(input, outMp4); } catch { /* ignore */ } }) // fallback: serve original bytes so the link still resolves
+      .catch((e) => { console.error('[transcode FAIL]', input, '→', e && (e.stack || e.message || e)); }) // leave no broken file; the original stays for a future retry
   );
 }
 
