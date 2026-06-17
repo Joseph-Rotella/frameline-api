@@ -110,6 +110,8 @@ function cleanConfig(incoming: any): any {
   return {
     headline: String(i.headline || '').slice(0, 200),
     intro: String(i.intro || '').slice(0, 2500),
+    specialties: (Array.isArray(i.specialties) ? i.specialties : String(i.specialties || '').split(','))
+      .map((s: any) => String(s).trim()).filter(Boolean).slice(0, 6).map((s: string) => s.slice(0, 28)),
     contactOn: !!i.contactOn,
     formOn: i.formOn === undefined ? true : !!i.formOn,
     design,
@@ -355,7 +357,11 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
 </div></div>
 </section>` : '';
 
-  const headerInner = `<div class="kicker">${esc(name)}</div><h1>${esc(c.headline || name + ' \u2014 Our Work')}</h1>${c.intro ? `<p class="lede">${esc(c.intro)}</p>` : ''}`;
+  const pills = (c.specialties && c.specialties.length)
+    ? `<div class="hero-tags">${c.specialties.map((s: string) => `<span class="tag">${esc(s)}</span>`).join('')}</div>`
+    : '';
+  const ctas = `<div class="hero-cta"><a class="btn-h" href="#work">View work</a>${c.formOn ? `<a class="btn-h ghost" href="#reqform">Book a session &rarr;</a>` : ''}</div>`;
+  const headerInner = `<div class="kicker">${esc(name)}</div>${pills}<h1 class="display">${esc(c.headline || name + ' \u2014 Our Work')}</h1>${c.intro ? `<p class="hero-tag-line">${esc(c.intro)}</p>` : ''}${ctas}`;
   const shadeMap: any = { light: 'rgba(0,0,0,.16),rgba(0,0,0,.30)', medium: 'rgba(0,0,0,.34),rgba(0,0,0,.58)', dark: 'rgba(0,0,0,.5),rgba(0,0,0,.72)' };
   const heightMap: any = { short: 240, medium: 380, tall: 560 };
   const coverShade = shadeMap[design.coverShade] || shadeMap.medium;
@@ -365,24 +371,45 @@ function workPage(orgId: string, name: string, c: any, profile: any): string {
     ? `<header class="hero" style="min-height:${coverMinH}px;--cover:url('${esc(design.cover)}');--shade:linear-gradient(${coverShade});--cpos:${coverPos}"><div class="hero-in">${headerInner}</div></header>`
     : '';
 
-  const body = items.length ? `<div class="grid">${cells}</div>` : `<div class="empty">This showcase is being put together. Check back soon.</div>`;
+  const body = items.length
+    ? `<section id="work"><div class="sec-head"><div class="sec-k">Selected work</div><h2 class="display sec-h">The Work</h2></div><div class="grid">${cells}</div></section>`
+    : `<div class="empty" id="work">This showcase is being put together. Check back soon.</div>`;
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(c.headline || name)} \u2014 Our Work</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
 <style>
 :root{${themeVars(design)}}
 *{box-sizing:border-box}html,body{margin:0}
+html{scroll-behavior:smooth}
 body{background:var(--paper);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 h1,h2,.kicker{font-family:${headFont(design.font)}}
+.display{font-family:'Playfair Display',Georgia,'Times New Roman',serif}
 .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
-header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
-.hero{position:relative;overflow:hidden;isolation:isolate;border-bottom:1px solid var(--line);display:flex;align-items:center}
-.hero-in{max-width:1100px;margin:0 auto;padding:30px 20px;width:100%}
+header{padding:64px 0 30px;border-bottom:1px solid var(--line)}
+.hero{position:relative;overflow:hidden;isolation:isolate;border-bottom:1px solid var(--line);display:flex;align-items:flex-end}
+.hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,0) 46%)}
+.hero-in{max-width:1100px;margin:0 auto;padding:30px 20px 46px;width:100%}
 .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.hero .kicker{color:#fff;opacity:.92}
 h1{font-size:clamp(28px,5vw,46px);line-height:1.05;margin:10px 0 0;font-weight:700;letter-spacing:-.01em}
+h1.display{font-size:clamp(36px,7vw,72px);line-height:1.0;font-weight:600;letter-spacing:-.015em;margin:8px 0 0}
+.hero h1{color:#fff;text-shadow:0 2px 30px rgba(0,0,0,.4)}
+.hero-tags{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;padding:6px 13px;border-radius:999px;border:1px solid var(--accent);color:var(--accent)}
+.hero .tag{color:#fff;border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.08)}
+.hero-tag-line{font-family:'Playfair Display',Georgia,serif;font-style:italic;font-size:clamp(18px,2.7vw,28px);line-height:1.3;color:var(--soft);max-width:640px;margin:14px 0 0;white-space:pre-wrap}
+.hero .hero-tag-line{color:rgba(255,255,255,.92)}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0 0}
+.btn-h{display:inline-block;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;padding:13px 24px;border-radius:10px;background:var(--accent);color:#fff;border:1px solid var(--accent);transition:transform .15s ease,box-shadow .25s ease,background .2s ease}
+.btn-h:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.32)}
+.btn-h.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.hero .btn-h.ghost{color:#fff;border-color:rgba(255,255,255,.6)}
+.sec-head{text-align:center;padding:54px 0 8px}
+.sec-k{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent)}
+.sec-h{font-size:clamp(28px,4.4vw,44px);line-height:1.05;margin:10px 0 0;color:var(--ink);font-weight:600;letter-spacing:-.01em}
 .lede{font-size:16px;color:var(--soft);max-width:660px;margin:16px 0 0;line-height:1.55;white-space:pre-wrap}
 ${gridCss}
 .vid{position:relative;width:100%;aspect-ratio:16/9;background:#0d0d0f;overflow:hidden}
