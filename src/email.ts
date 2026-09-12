@@ -169,7 +169,7 @@ email.get('/gmail/messages', async (req: Authed, res: Response) => {
 export async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string }): Promise<string> {
   const accessToken = await getGmailAccessToken(orgId);
   const raw = Buffer.from(
-    `To: ${msg.to}\r\nSubject: ${msg.subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${msg.body}`
+    `To: ${msg.to}\r\nSubject: ${msg.subject}\r\MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${msg.body}`
   ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
