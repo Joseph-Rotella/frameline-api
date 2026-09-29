@@ -471,7 +471,7 @@ ${design.cover ? '' : `<header>${headerInner}</header>`}
 ${body}
 ${form}
 ${contact}
-<footer>${esc(name)} &middot; Made with Frameline</footer>
+<footer>${esc(name)}</footer>
 </div>
 <div class="lb" id="lb"><img id="lbimg" alt=""></div>
 <script>
@@ -557,7 +557,7 @@ showcase.post('/work/:org/inquiry', async (req: Request, res: Response) => {
 
   let prof: any = {}; try { prof = JSON.parse(o.profile || '{}'); } catch { prof = {}; }
   if (prof.email) {
-    const body = `You have a new request from your Our Work page.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone || '-'}\n\nMessage:\n${message}\n\nReply directly to ${email} to respond.\n\n- Frameline`;
+    const body = `You have a new request from your Our Work page.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone || '-'}\n\nMessage:\n${message}\n\nReply directly to ${email} to respond.`;
     sendViaGmail(orgId, { to: prof.email, subject: `New request from ${name}`, body }).catch(() => { /* lead still saved */ });
   }
   res.json({ ok: true });

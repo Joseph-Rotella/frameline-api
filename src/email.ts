@@ -86,7 +86,7 @@ emailPublic.get('/integrations/gmail/callback', async (req: Request, res: Respon
                 VALUES (?,?,?,?,?)
                 ON CONFLICT(org_id, provider) DO UPDATE SET data_encrypted = excluded.data_encrypted`)
       .run(uid(), orgId, 'gmail', JSON.stringify(tokens), 'gmail.send gmail.readonly');
-    res.send('Gmail connected. You can close this tab and return to Frameline.');
+    res.send('Gmail connected. You can close this tab and return to the app.');
   } catch (e) {
     res.status(500).send('OAuth exchange failed: ' + (e as Error).message);
   }

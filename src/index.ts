@@ -55,6 +55,19 @@ app.get('/me', requireAuth, (req: Authed, res: Response) => {
   res.json({ user, org });
 });
 
+// Save the studio name + profile to the backend so they stick across devices and syncs
+// (and so outgoing email uses the right sender name).
+app.patch('/me/org', requireAuth, (req: Authed, res: Response) => {
+  const { name, profile } = req.body || {};
+  const cur = db.prepare('SELECT name, profile FROM organizations WHERE id = ?').get(req.orgId) as any;
+  if (!cur) return res.status(404).json({ error: 'studio not found' });
+  const newName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : cur.name;
+  const newProfile = profile && typeof profile === 'object' ? JSON.stringify(profile) : cur.profile;
+  db.prepare('UPDATE organizations SET name = ?, profile = ? WHERE id = ?').run(newName, newProfile, req.orgId);
+  let prof: any = newProfile; try { prof = JSON.parse(newProfile); } catch { /* keep */ }
+  res.json({ org: { id: req.orgId, name: newName, profile: prof } });
+});
+
 // Generic CRUD resources
 for (const [name, def] of Object.entries(RESOURCES)) {
   app.use(`/${name}`, requireAuth, crudRouter(def));
