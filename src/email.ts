@@ -12,7 +12,7 @@ export const emailPublic = Router();
 // still delivers from the user's address). When Gmail is connected with valid tokens,
 // this is where the real Gmail API send goes — see sendViaGmail() below.
 email.post('/emails/send', async (req: Authed, res: Response) => {
-  const { clientId, to, subject, body, attachments } = req.body || {};
+  const { clientId, to, subject, body, attachments, fromName } = req.body || {};
   if (!to) return res.status(400).json({ error: 'recipient (to) required' });
 
   const cred: any = db.prepare("SELECT * FROM integration_credentials WHERE org_id = ? AND provider = 'gmail'").get(req.orgId);
@@ -22,7 +22,7 @@ email.post('/emails/send', async (req: Authed, res: Response) => {
 
   if (cred) {
     try {
-      gmailMessageId = await sendViaGmail(req.orgId!, { to, subject, body });
+      gmailMessageId = await sendViaGmail(req.orgId!, { to, subject, body, fromName });
       delivered = true;
     } catch (e) {
       sendError = (e as Error).message;
@@ -166,11 +166,60 @@ email.get('/gmail/messages', async (req: Authed, res: Response) => {
   }
 });
 
-export async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string }): Promise<string> {
+// RFC 2047: non-ASCII header text (em dashes, accents, emoji) must be encoded,
+// otherwise mail clients show it as garbage like "â€”".
+function encodeHeader(text: string): string {
+  const t = String(text || '').replace(/[\r\n]+/g, ' ');
+  return /^[\x20-\x7E]*$/.test(t) ? t : `=?UTF-8?B?${Buffer.from(t, 'utf8').toString('base64')}?=`;
+}
+
+// Display name for the From line: quoted if plain ASCII, RFC 2047-encoded otherwise.
+function displayName(name: string): string {
+  const n = name.replace(/["\\\r\n]/g, '');
+  return /^[\x20-\x7E]*$/.test(n) ? `"${n}"` : encodeHeader(n);
+}
+
+// The connected Gmail account's address (needed to build the "From" line). Cached with the tokens.
+async function getGmailAddress(orgId: string, accessToken: string): Promise<string> {
+  const cred: any = db.prepare("SELECT * FROM integration_credentials WHERE org_id = ? AND provider = 'gmail'").get(orgId);
+  const tokens: any = cred ? JSON.parse(cred.data_encrypted) : {};
+  if (tokens.email_address) return tokens.email_address;
+  const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data: any = await r.json();
+  if (!r.ok || !data.emailAddress) return '';
+  tokens.email_address = data.emailAddress;
+  db.prepare("UPDATE integration_credentials SET data_encrypted = ? WHERE org_id = ? AND provider = 'gmail'").run(JSON.stringify(tokens), orgId);
+  return data.emailAddress;
+}
+
+export async function sendViaGmail(orgId: string, msg: { to: string; subject: string; body: string; fromName?: string }): Promise<string> {
   const accessToken = await getGmailAccessToken(orgId);
-  const raw = Buffer.from(
-    `To: ${msg.to}\r\nSubject: ${msg.subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${msg.body}`
-  ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  // "From" shows the studio name instead of the Google account's personal name ("Joseph Ai").
+  // Priority: name sent with the email > studio name saved on the backend account > STUDIO_FROM_NAME env var.
+  const org: any = db.prepare('SELECT name FROM organizations WHERE id = ?').get(orgId);
+  const studioName = String(msg.fromName || org?.name || process.env.STUDIO_FROM_NAME || '').trim();
+  let fromAddress = '';
+  try { fromAddress = await getGmailAddress(orgId, accessToken); } catch { /* fall back to Gmail default */ }
+  const fromLine = fromAddress
+    ? `From: ${studioName ? `${displayName(studioName)} ` : ''}<${fromAddress}>\r\n`
+    : '';
+
+  // HTML bodies (invoices/receipts) go as text/html; plain-text bodies (sign-in codes, lead alerts) as text/plain.
+  const isHtml = /<\/?[a-z][\s\S]*>/i.test(msg.body || '');
+  // Base64 the body so UTF-8 characters (em dashes, accents) arrive intact instead of as "Ã¢Â€Â".
+  const bodyB64 = (Buffer.from(msg.body || '', 'utf8').toString('base64').match(/.{1,76}/g) || []).join('\r\n');
+
+  const mime =
+    fromLine +
+    `To: ${msg.to}\r\n` +
+    `Subject: ${encodeHeader(msg.subject || '')}\r\n` +
+    `MIME-Version: 1.0\r\n` +
+    `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=UTF-8\r\n` +
+    `Content-Transfer-Encoding: base64\r\n\r\n` +
+    bodyB64;
+
+  const raw = Buffer.from(mime, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
