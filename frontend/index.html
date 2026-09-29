@@ -6,7 +6,7 @@
      like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=7bc890ca-b4fe-4447-951c-bb70ff1078ac
      Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Frameline — Sports Photography Platform</title>
+<title>Lukesfilez — Sports Photography Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -456,7 +456,7 @@
   <aside class="sidebar">
     <div class="brand">
       <svg class="aperture" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" stroke="#C8A86A" stroke-width="2"/><path d="M20 4 L29 14 L17 14 Z M36 20 L26 29 L26 17 Z M20 36 L11 26 L23 26 Z M4 20 L14 11 L14 23 Z" fill="#9E2B25" opacity="0.92"/><circle cx="20" cy="20" r="5" fill="#1C1A17" stroke="#C8A86A" stroke-width="1.5"/></svg>
-      <div class="brand-name" id="brandName">Frameline<span>SPORTS PHOTO OS</span></div>
+      <div class="brand-name" id="brandName">Lukesfilez<span>SPORTS PHOTO OS</span></div>
     </div>
     <div class="ai-chip"><span class="pulse"></span><span id="aiStatus">AI ENGINE · READY</span></div>
     <div class="ai-chip" id="syncChip" style="cursor:pointer;background:rgba(140,134,123,.16);border-color:rgba(140,134,123,.3);color:#C2BCB0" title="Backend connection"><span class="pulse" id="syncDot" style="background:#8C867B"></span><span id="syncTxt">OFFLINE · LOCAL ONLY</span></div>
@@ -515,7 +515,7 @@ const Store=(()=>{const mem={};const hasWS=typeof window!=='undefined'&&window.s
 const MAIN='frameline:v3', PKEY=gid=>'frameline:photos:'+gid;
 
 /* ===== State ===== */
-let state={studio:'Frameline',profile:{email:'',phone:'',address:''},packages:[],schools:[],teams:[],athletes:[],pictureDays:[],galleries:[],orders:[],appointments:[],tasks:[],documents:[],emails:[],templates:[],inquiries:[],integrations:{gmail:{connected:false,email:'',connectedAt:''},ai:{provider:'claude-builtin',hasKey:false}},onboarded:true};
+let state={studio:'Lukesfilez',profile:{email:'',phone:'',address:''},packages:[],schools:[],teams:[],athletes:[],pictureDays:[],galleries:[],orders:[],appointments:[],tasks:[],documents:[],emails:[],templates:[],inquiries:[],integrations:{gmail:{connected:false,email:'',connectedAt:''},ai:{provider:'claude-builtin',hasKey:false}},onboarded:true};
 let view='dashboard', query='', currentSchoolId=null, currentGalleryId=null, clientTab='overview', mailTab='inbox';
 let calMode='month', calCursor=new Date();
 const expandedTeams=new Set();
@@ -562,7 +562,7 @@ async function save(){await Store.set(MAIN,state);if(Sync.authed&&Sync.online){t
 async function sendEmailViaBackend({clientId,to,subject,body,attachments,localId}){
   if(!(Sync.authed&&Sync.online))return{sent:false,offline:true};
   try{
-    const r=await Sync.api('/emails/send',{method:'POST',body:JSON.stringify({clientId:clientId||null,to,subject,body,attachments:attachments||[]})});
+    const r=await Sync.api('/emails/send',{method:'POST',body:JSON.stringify({clientId:clientId||null,to,subject,body,attachments:attachments||[],fromName:state.studio})});
     if(localId){Sync.snap.emails=Sync.snap.emails||{};Sync.snap.emails[localId]=1;}
     return{sent:true,delivered:!!(r&&r.delivered),error:(r&&r.error)||'',note:(r&&r.note)||''};
   }catch(e){return{sent:true,delivered:false,error:(e&&e.message)||'send failed'};}
@@ -634,7 +634,7 @@ const Sync={
     for(const res of SYNC_RES){const rows=await this.api('/'+res.ep);state[res.k]=rows.map(row=>fromApi(res,row));}
     state.galleries.forEach(g=>{g.photoCount=(galleryPhotos[g.id]||[]).length||0;});
     try{const em=await this.api('/emails');state.emails=em.map(e=>({id:e.id,schoolId:e.client_id||'',contactEmail:e.contact_email,direction:e.direction,subject:e.subject,body:e.body,date:e.sent_at||e.created_at,attachments:e.attachments||[]}));}catch(e){}
-    try{const me=await this.api('/me');if(me&&me.org){state.studio=me.org.name||state.studio;if(me.org.profile)state.profile=me.org.profile;}}catch(e){}
+    try{const me=await this.api('/me');if(me&&me.org){const bn=(me.org.name||'').trim();if(bn&&!/^(frameline|my studio)/i.test(bn)){state.studio=bn;if(me.org.profile)state.profile=me.org.profile;}else{if(!state.studio||/^(frameline|my studio)/i.test(state.studio))state.studio='Lukesfilez';await this.saveOrg();}}}catch(e){}
     state.onboarded=true;ensureDefaults();this.takeSnap();await Store.set(MAIN,state);
     await this.loadIntegrations();
     if(view===startView){view='dashboard';currentSchoolId=null;currentGalleryId=null;}
@@ -650,9 +650,10 @@ const Sync={
         for(const id in snap){if(!(id in cur)){try{await this.api('/'+res.ep+'/'+id,{method:'DELETE'});}catch(e){}delete snap[id];}}
         this.snap[res.k]=snap;}
       const esnap=this.snap.emails||{};
-      for(const e of (state.emails||[])){if(!(e.id in esnap)){if(e.direction==='sent'){try{await this.api('/emails/send',{method:'POST',body:JSON.stringify({clientId:e.schoolId||null,to:e.contactEmail,subject:e.subject,body:e.body,attachments:e.attachments||[]})});}catch(err){}}esnap[e.id]=1;}}
+      for(const e of (state.emails||[])){if(!(e.id in esnap)){if(e.direction==='sent'){try{await this.api('/emails/send',{method:'POST',body:JSON.stringify({clientId:e.schoolId||null,to:e.contactEmail,subject:e.subject,body:e.body,attachments:e.attachments||[],fromName:state.studio})});}catch(err){}}esnap[e.id]=1;}}
       this.snap.emails=esnap;
     }finally{this.busy=false;}},
+  async saveOrg(){if(!this.authed||!this.online)return;const prof=Object.assign({},state.profile||{});if(prof.logo&&prof.logo.length>1500000)delete prof.logo;try{await this.api('/me/org',{method:'PATCH',body:JSON.stringify({name:state.studio,profile:prof})});}catch(e){try{await this.api('/me/org',{method:'PATCH',body:JSON.stringify({name:state.studio})});}catch(_){}}},
   async pushLocalAll(){this.snap={};this.snap.emails={};await this.push();},
   async loadIntegrations(){if(!this.authed||!this.online)return;try{const s=await this.api('/integrations/status');
     state.integrations.ai={provider:state.integrations.ai.provider||'anthropic',hasKey:!!(s.ai&&s.ai.hasKey)};
@@ -683,9 +684,9 @@ function updateSyncChip(){const d=$('#syncDot'),t=$('#syncTxt'),c=$('#syncChip')
 function openLogin(){editing=null;
   $('#mEyebrow').textContent='Backend';$('#mEyebrow').className='eyebrow';$('#mTitle').textContent='Connect to your backend';$('#modal').classList.remove('wide');
   $('#mBody').innerHTML=`<div class="field"><label>Backend URL</label><input id="lg-url" value="${esc(Sync.base)}" placeholder="http://localhost:4000"></div>
-    <div class="grid2"><div class="field"><label>Email</label><input id="lg-email" value="demo@frameline.test"></div><div class="field"><label>Password</label><input id="lg-pw" type="password" value="frameline"></div></div>
+    <div class="grid2"><div class="field"><label>Email</label><input id="lg-email" value="" placeholder="you@email.com"></div><div class="field"><label>Password</label><input id="lg-pw" type="password" value=""></div></div>
     <button class="btn btn-sm btn-ghost" id="lg-register" style="padding-left:0">+ Create a new studio account instead</button>
-    <div style="font-size:12px;color:var(--muted);margin-top:8px">Signing in loads your studio's data from the backend and keeps this device in sync. If the backend isn't running, Frameline keeps working on this device only.</div>`;
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Signing in loads your studio's data from the backend and keeps this device in sync. If the backend isn't running, the app keeps working on this device only.</div>`;
   $('#mDelete').style.display='none';$('#mCancel').textContent='Cancel';$('#mSave').textContent='Sign in';$('#mSave').className='btn btn-primary';$('#mSave').style.display='inline-flex';
   setTimeout(()=>{const rb=$('#lg-register');if(rb)rb.onclick=async()=>{Sync.setBase($('#lg-url').value.trim());try{await Sync.register($('#lg-email').value.trim(),$('#lg-pw').value,state.studio||'My Studio');closeModal();toast('Studio created — your current data is now synced');}catch(e){toast('Could not register: '+(e.message||'try a different email'));}};},30);
   $('#mSave').onclick=async()=>{Sync.setBase($('#lg-url').value.trim());try{await Sync.login($('#lg-email').value.trim(),$('#lg-pw').value);closeModal();toast('Connected — synced with your backend');}catch(e){toast('Sign in failed: '+(e.message||'check the URL & credentials'));}};
@@ -704,6 +705,7 @@ function openLogin(){editing=null;
   Sync.connect();
 })();
 function ensureDefaults(){
+  if(!state.studio||/^frameline/i.test(state.studio))state.studio='Lukesfilez';
   if(!state.profile)state.profile={email:'',phone:'',address:''};
   if(!state.packages||!state.packages.length)state.packages=DEFAULT_PACKAGES.map(([name,price])=>({id:uid(),name,price}));
   ['appointments','tasks','documents','emails','templates'].forEach(k=>{if(!Array.isArray(state[k]))state[k]=[];});
@@ -786,10 +788,10 @@ function seed(){
   ];
   const emails=[
     {id:uid(),schoolId:s1,contactEmail:'tmills@lincoln.edu',direction:'received',subject:'Re: Fall picture day logistics',body:'Hi — confirming the field house is reserved for the 8:30am slot. Front lot is open for your van. Rosters attached for football and volleyball.\n\nThanks,\nCoach Mills',date:dt(-5,10,12),attachments:[]},
-    {id:uid(),schoolId:s1,contactEmail:'tmills@lincoln.edu',direction:'sent',subject:'Fall picture day logistics',body:'Hi Coach Mills,\n\nLooking forward to picture day. Could you confirm field-house access and parking for the van? We will bring two backdrops.\n\nBest,\nFrameline',date:dt(-6,9,3),attachments:[]},
+    {id:uid(),schoolId:s1,contactEmail:'tmills@lincoln.edu',direction:'sent',subject:'Fall picture day logistics',body:'Hi Coach Mills,\n\nLooking forward to picture day. Could you confirm field-house access and parking for the van? We will bring two backdrops.\n\nBest,\nLukesfilez',date:dt(-6,9,3),attachments:[]},
     {id:uid(),schoolId:s2,contactEmail:'dpark@stagnes.org',direction:'received',subject:'Re: Renewing for next season',body:'Thanks for reaching out. Let us find time to talk through pricing — the board wants to compare a couple of vendors this year.',date:dt(-4,16,40),attachments:[]},
   ];
-  return{studio:'Frameline',profile:{email:'studio@frameline.photo',phone:'(305) 555-0100',address:'1200 Aperture Ave, Suite 5, Miami, FL 33101'},
+  return{studio:'Lukesfilez',profile:{email:'Lukesfilez@gmail.com',phone:'(305) 555-0100',address:'1200 Aperture Ave, Suite 5, Miami, FL 33101'},
     packages:DEFAULT_PACKAGES.map(([name,price])=>({id:uid(),name,price})),
     schools,teams,athletes,pictureDays,galleries,orders,appointments,tasks,documents,emails,
     templates:defaultTemplates(),
@@ -1505,7 +1507,7 @@ function renderSettings(){
   const billTplRows=state.templates.filter(t=>t.audience==='Billing').map(t=>`<div class="pkg-row"><span class="pn">${esc(t.name)}</span><button class="btn btn-sm btn-ghost" data-edit-btpl="${t.id}">Edit</button></div>`).join('')||`<div style="color:var(--muted);font-size:13px;padding:8px 0">No quote/invoice templates yet.</div>`;
   const provs=[['claude-builtin','Claude (built-in)'],['openai','OpenAI · ChatGPT'],['gemini','Google Gemini'],['anthropic','Anthropic (your key)'],['custom','Custom endpoint']];
   return `<div class="set-grid">
-    <div class="card-pad"><h3>Backend connection</h3><p class="hint">Sync this app with your Frameline backend so data lives on the server and works across devices. If the backend is off, Frameline keeps running on this device.</p>
+    <div class="card-pad"><h3>Backend connection</h3><p class="hint">Sync this app with your backend so data lives on the server and works across devices. If the backend is off, the app keeps running on this device.</p>
       <div class="field"><label>Backend URL</label><input id="set-api" value="${esc(Sync.base)}" placeholder="http://localhost:4000"></div>
       <div class="conn-line"><span class="conn-dot ${Sync.online&&Sync.authed?'on-dot':'off-dot'}"></span>${Sync.online&&Sync.authed?'Connected &amp; syncing':(Sync.online?'Backend reachable — not signed in':'Not connected — local only')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${Sync.authed?`<button class="btn btn-sm" id="set-signout">Sign out</button><button class="btn btn-sm" id="set-pull">Pull from server</button><button class="btn btn-sm" id="set-push">Push local → server</button>`:`<button class="btn btn-primary btn-sm" id="set-signin">Sign in / connect</button>`}</div>
@@ -1570,7 +1572,7 @@ function wireSettings(){
    if(lf)lf.onchange=()=>{const f=lf.files&&lf.files[0];if(!f)return;_logoFromFile(f,url=>{if(!url){toast('Could not read that image');return;}pendingLogo=url;if(lu)lu.value='';_logoPrev();});};
    if(lu)lu.oninput=()=>{pendingLogo=lu.value.trim();_logoPrev();};
    if(rm)rm.onclick=()=>{pendingLogo='';if(lu)lu.value='';if(lf)lf.value='';_logoPrev();};}
-  const sv=$('#set-save');if(sv)sv.onclick=async()=>{state.studio=$('#set-name').value.trim()||'Frameline';state.profile=Object.assign({},state.profile,{email:$('#set-email').value.trim(),phone:$('#set-phone').value.trim(),address:$('#set-address').value.trim(),logo:pendingLogo||''});$('#brandName').firstChild.textContent=state.studio;await save();toast('Profile saved');};
+  const sv=$('#set-save');if(sv)sv.onclick=async()=>{state.studio=$('#set-name').value.trim()||'Lukesfilez';state.profile=Object.assign({},state.profile,{email:$('#set-email').value.trim(),phone:$('#set-phone').value.trim(),address:$('#set-address').value.trim(),logo:pendingLogo||''});$('#brandName').firstChild.textContent=state.studio;await save();await Sync.saveOrg();toast('Profile saved');};
   const ap=$('#add-pkg');if(ap)ap.onclick=()=>openPackage();
   const at=$('#add-tpl');if(at)at.onclick=()=>openTemplate();
   const abt=$('#add-btpl');if(abt)abt.onclick=()=>openBillingTemplate();
@@ -2391,7 +2393,7 @@ async function backupAll(){
       integrations:{gmail:{connected:!!(state.integrations.gmail&&state.integrations.gmail.connected),email:(state.integrations.gmail&&state.integrations.gmail.email)||''},ai:{provider:(state.integrations.ai&&state.integrations.ai.provider)||'claude-builtin',hasKey:!!(state.integrations.ai&&state.integrations.ai.hasKey)}},onboarded:true},
     photos:{}};
   try{for(const g of state.galleries){const ph=await Store.get(PKEY(g.id));if(Array.isArray(ph)&&ph.length)data.photos[g.id]=ph;}}catch(e){}
-  downloadFile('frameline-backup-'+todayISO()+'.json',JSON.stringify(data,null,2),'application/json');
+  downloadFile('lukesfilez-backup-'+todayISO()+'.json',JSON.stringify(data,null,2),'application/json');
   toast('Backup saved to your computer');
 }
 function restoreBackup(file){
@@ -2399,7 +2401,7 @@ function restoreBackup(file){
   r.onload=async()=>{
     let data;try{data=JSON.parse(r.result);}catch(e){toast('That file isn\'t a valid backup');return;}
     const st=data&&data.state?data.state:data;
-    if(!st||!Array.isArray(st.schools)){toast('That doesn\'t look like a Frameline backup');return;}
+    if(!st||!Array.isArray(st.schools)){toast('That doesn\'t look like a backup file');return;}
     if(!confirm('Restore this backup? It replaces the data currently in this app on this device'+((Sync.authed&&Sync.online)?' and uploads it to your backend.':'.')))return;
     ['studio','profile','packages','schools','teams','athletes','pictureDays','galleries','orders','appointments','tasks','documents','emails','templates','integrations'].forEach(k=>{if(st[k]!==undefined)state[k]=st[k];});
     ensureDefaults();
