@@ -104,4 +104,5 @@ export const RESOURCES: Record<string, ResourceDef> = {
   tasks: { table: 'tasks', cols: ['client_id', 'title', 'due', 'priority', 'done'], bool: ['done'], filters: ['client_id'] },
   documents: { table: 'documents', cols: ['client_id', 'name', 'type', 'status', 'date', 'body'], filters: ['client_id'] },
   templates: { table: 'templates', cols: ['name', 'audience', 'subject', 'body'] },
+  'money-entries': { table: 'money_entries', cols: ['date', 'name', 'amount', 'type', 'category', 'notes', 'txn_id', 'hidden'], bool: ['hidden'] },
 };
