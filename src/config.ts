@@ -25,6 +25,11 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:4000/integrations/gmail/callback',
   },
+  plaid: {
+    clientId: process.env.PLAID_CLIENT_ID || '',
+    secret: process.env.PLAID_SECRET || '',
+    env: (process.env.PLAID_ENV || 'sandbox').trim().toLowerCase(),
+  },
   stripe: {
     secret: process.env.STRIPE_SECRET_KEY || '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',

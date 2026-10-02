@@ -13,6 +13,7 @@ import { payments, stripeWebhook, stripeEnabled } from './payments';
 import { shareOwner, sharePublic, purgeExpired } from './share';
 import { portal, portalOwner } from './portal';
 import { showcase, showcaseOwner } from './showcase';
+import { plaid, plaidEnabled } from './plaid';
 
 seedIfEmpty();
 purgeExpired();
@@ -33,9 +34,9 @@ app.use('/uploads', express.static(config.uploadDir));
 
 app.get('/health', (_req, res) => res.json({
   ok: true,
-  version: 'showcase-14',
+  version: 'plaid-1',
   features: { gmailInbox: true, tokenRefresh: true },
-  integrations: { ai: aiEnabled ? 'live' : 'stub', gmail: config.google.clientId ? 'configured' : 'mailto-fallback', stripe: stripeEnabled ? 'live' : 'stub', thumbnails: sharpAvailable ? 'on' : 'off' },
+  integrations: { ai: aiEnabled ? 'live' : 'stub', gmail: config.google.clientId ? 'configured' : 'mailto-fallback', stripe: stripeEnabled ? 'live' : 'stub', thumbnails: sharpAvailable ? 'on' : 'off', plaid: plaidEnabled ? config.plaid.env : 'stub' },
 }));
 
 // Public auth
@@ -81,6 +82,7 @@ app.use(requireAuth, payments);
 app.use(requireAuth, shareOwner);
 app.use(requireAuth, portalOwner);
 app.use(requireAuth, showcaseOwner);
+app.use(requireAuth, plaid);
 app.post('/admin/purge', requireAuth, (_req, res) => res.json({ purged: purgeExpired() }));
 
 // 404 + error handler

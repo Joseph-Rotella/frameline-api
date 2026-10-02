@@ -200,3 +200,16 @@ CREATE TABLE IF NOT EXISTS inquiries (
   status TEXT NOT NULL DEFAULT 'new',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Plaid bank connections (one row per linked bank login).
+-- NOTE: access_token is stored as-is; encrypt at rest before going to Production.
+CREATE TABLE IF NOT EXISTS plaid_items (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL UNIQUE,
+  access_token TEXT NOT NULL,
+  institution_name TEXT,
+  cursor TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_plaid_items_org ON plaid_items(org_id);
